@@ -1,0 +1,528 @@
+from hdlproto import *
+
+class ProgramCounter(Module):
+    def __init__(self, n_clr, cp, ep, pc_out):
+        self.n_clr = Input(n_clr)
+        self.cp = Input(cp)
+        self.ep = Input(ep)
+        self.pc_out = Output(pc_out)
+        self.pc = Reg(init=0, width=4)
+        self.pc_next = Wire(init=0, width=4)
+        super().__init__()
+
+    @always_ff
+    def sequential_circuit(self, reset):
+        if reset:
+            self.pc.r = 0
+        else:
+            self.pc.r = self.pc_next.w
+
+    @always_comb
+    def combinational_circuit(self):
+        self.pc_next.w = self.pc.r
+
+        # リセット
+        if not self.n_clr.w:
+            self.pc_next.w = 0
+
+        # PC 更新
+        if self.n_clr.w and self.cp.w:
+            self.pc_next.w = self.pc.r + 1
+
+        # PC 出力
+        if self.ep.w:
+            self.pc_out[3:0] = self.pc.r
+
+    def log_clock_end(self, cycle):
+        if self.ep.w:
+            print(f"PC:   PC=0x{self.pc.r:01X}")
+        if self.n_clr.w and self.cp.w:
+            print(f"PC:   PC=0x{self.pc_next.w:01X}")
+
+class InputAndMemoryAddressRegister(Module):
+    def __init__(self, n_lm, ain, a):
+        self.n_lm = Input(n_lm)
+        self.ain = Input(ain)
+        self.a = Output(a)
+        self.a_reg = Reg(init=0, width=4)
+        self.a_reg_next = Wire(init=0, width=4)
+        self.select_a = Wire(init=0, width=4)
+        super().__init__()
+
+    @always_ff
+    def sequential_circuit(self, reset):
+        if reset:
+            self.a_reg.r = 0
+        else:
+            self.a_reg.r = self.a_reg_next.w
+
+    @always_comb
+    def combinational_circuit(self):
+        self.a_reg_next.w = self.a_reg.r
+
+        # アドレスを選択
+        if self.n_lm.w:
+            self.select_a.w = self.a_reg.r
+        else:
+            self.select_a.w = self.ain[3:0]
+
+        # 選択した A をラッチ
+        self.a_reg_next.w = self.select_a.w
+
+        # アドレス出力
+        self.a.w = self.a_reg.r
+
+    def log_clock_end(self, cycle):
+        if not self.n_lm.w:
+            print(f"MAR:   ADDRESS=0x{self.a_reg_next.w:01X}")
+
+
+class Ram(Module):
+    def __init__(self, a, n_ce, d):
+        self.a = Input(a)
+        self.n_ce = Input(n_ce)
+        self.d = Output(d)
+        self.memory = [     # addr  inst        Acc     B-Reg   Out-Reg
+            0x09,           # 0x0   LDA  0x9    0x02    0x00    0x00
+            0x1A,           # 0x1   ADD  0xA    0x05    0x03    0x00
+            0x1B,           # 0x2   ADD  0xB    0x0A    0x05    0x00
+            0x2C,           # 0x3   SUB  0xC    0x06    0x04    0x00
+            0xE0,           # 0x4   OUT         0x06    0x04    0x06
+            0xF0,           # 0x5   HALT
+            0x00,           # 0x6
+            0x00,           # 0x7
+            0x00,           # 0x8
+            0x02,           # 0x9
+            0x03,           # 0xA
+            0x05,           # 0xB
+            0x04,           # 0xC
+            0x00,           # 0xD
+            0x00,           # 0xE
+            0x00            # 0xF
+        ]
+        super().__init__()
+
+    @always_comb
+    def combinational_circuit(self):
+        if not self.n_ce.w:
+            self.d.w = self.memory[self.a[3:0]]
+
+    def log_clock_end(self, cycle):
+        if not self.n_ce.w:
+            print(f"Ram:   address={self.a.w:01X}, data=0x{self.d.w:02X}")
+
+
+
+class InstructionRegister(Module):
+    def __init__(self, clr, d, n_li, n_ei, inst, imm):
+        self.clr = Input(clr)
+        self.d = Input(d)
+        self.n_li = Input(n_li)
+        self.n_ei = Input(n_ei)
+        self.inst = Output(inst)
+        self.imm = Output(imm)
+        self.inst_latch = Reg(init=0, width=4)
+        self.imm_latch = Reg(init=0, width=4)
+        self.data = Wire(init=0, width=8)
+        self.inst_next = Wire(init=0, width=4)
+        self.imm_next = Wire(init=0, width=4)
+        super().__init__()
+
+    @always_ff
+    def sequential_circuit(self, reset):
+        if reset:
+            self.inst_latch.r = 0
+            self.imm_latch.r = 0
+        else:
+            self.inst_latch.r = self.inst_next.w
+            self.imm_latch.r = self.imm_next.w
+
+    @always_comb
+    def combinational_circuit(self):
+        self.inst_next.w = self.inst_latch.r
+        self.imm_next.w = self.imm_latch.r
+
+        # リセット
+        if self.clr.w:
+            self.inst_next.w = 0
+            self.imm_next.w = 0
+
+        # ラッチするデータを選択
+        if self.n_li.w:
+            self.data[7:4] = self.inst_latch.r
+            self.data[3:0] =self.imm_latch.r
+        else:
+            self.data.w = self.d.w
+
+        # ラッチ
+        if not self.clr.w:
+            self.inst_next.w = self.data[7:4]
+            self.imm_next.w = self.data[3:0]
+
+        # ラッチしたデータを出力
+        if not self.n_ei.w:
+            self.inst.w = self.inst_latch.r
+            self.imm.w = (self.imm.w & 0xF0) | self.imm_latch.r
+
+    def log_clock_end(self, cycle):
+        if not self.n_li.w:
+            print(f"Instruction:   inst={self.inst_next.w:01X}, imm={self.imm_next.w:01X}")
+        if not self.n_ei.w:
+            print(f"Instruction:   out inst={self.inst.w:1X}, imm={self.imm[3:0]:1X}")
+
+class ControllerSequencer(Module):
+    def __init__(self, n_clr, inst, cp, ep, n_lm, n_ce, n_li, n_ei, n_la, ea, su, eu, n_lb, n_lo, n_halt):
+        self.n_clr = Input(n_clr)
+        self.inst = Input(inst)
+        self.cp = Output(cp)
+        self.ep = Output(ep)
+        self.n_lm = Output(n_lm)
+        self.n_ce = Output(n_ce)
+        self.n_li = Output(n_li)
+        self.n_ei = Output(n_ei)
+        self.n_la = Output(n_la)
+        self.ea = Output(ea)
+        self.su = Output(su)
+        self.eu = Output(eu)
+        self.n_lb = Output(n_lb)
+        self.n_lo = Output(n_lo)
+        self.n_halt = Output(n_halt)
+        self.t = Reg(init=0, width=4)  # 0 = T1, ..., 5 = T6
+        self.t_next = Wire(init=0, width=4)
+        self.inst_lda = Wire(init=0, width=1)
+        self.inst_add = Wire(init=0, width=1)
+        self.inst_sub = Wire(init=0, width=1)
+        self.inst_out = Wire(init=0, width=1)
+        super().__init__()
+
+    @always_ff
+    def sequential_circuit(self, reset):
+        if reset:
+            self.t.r = 0
+        else:
+            self.t.r = self.t_next.w
+
+    @always_comb
+    def combinational_circuit(self):
+        self.t_next.w = self.t.r
+
+        # Tステートを更新
+        if self.n_clr.w:
+            if self.t.r == 5:
+                self.t_next.w = 0
+            else:
+                self.t_next.w = self.t.r + 1
+        else:
+            self.t_next.w = 0
+
+        # inst から命令をデコード
+        self.inst_lda.w = self.inst.w == 0x0
+        self.inst_add.w = self.inst.w == 0x1
+        self.inst_sub.w = self.inst.w == 0x2
+        self.inst_out.w = self.inst.w == 0xE
+        self.n_halt.w = not (self.inst.w == 0xF)
+
+        # 制御信号
+        self.cp.w = self.t.r== 1
+        self.ep.w = self.t.r == 0
+        self.n_lm.w = not ((self.t.r == 0)
+                            or (self.t.r == 3 and self.inst_lda.w)
+                            or (self.t.r == 3 and self.inst_add.w)
+                            or (self.t.r == 3 and self.inst_sub.w))
+        self.n_ce.w = not ((self.t.r == 2)
+                            or (self.t.r == 4 and self.inst_lda.w)
+                            or (self.t.r == 4 and self.inst_add.w)
+                            or (self.t.r == 4 and self.inst_sub.w))
+        self.n_li.w = not self.t.r == 2
+        self.n_ei.w = not ((self.t.r == 3 and self.inst_lda.w)
+                            or (self.t.r == 3 and self.inst_add.w)
+                            or (self.t.r == 3 and self.inst_sub.w))
+        self.n_la.w = not ((self.t.r == 4 and self.inst_lda.w)
+                            or (self.t.r == 5 and self.inst_add.w)
+                            or (self.t.r == 5 and self.inst_sub.w))
+        self.ea.w = self.t.r == 3 and self.inst_out.w
+        self.su.w = self.t.r == 5 and self.inst_sub.w
+        self.eu.w = ((self.t.r == 5 and self.inst_add.w)
+                      or (self.t.r == 5 and self.inst_sub.w))
+        self.n_lb.w = not ((self.t.r == 4 and self.inst_add.w)
+                            or (self.t.r == 4 and self.inst_sub.w))
+        self.n_lo.w = not (self.t.r == 3 and self.inst_out.w)
+
+"""
+    def log_clock_end(self, cycle):
+        print(f"ControllerSequencer:   t.r={self.t.r}. t.w={self.t_next.w}")
+        print(f"ControllerSequencer:   t={self.t_next.w}")
+        print(f"ControllerSequencer:   cp | ep | n_lm | n_ce | n_li | n_ei | n_la | ea | su | eu | n_lb | n_lo | n_halt")
+        print(f"ControllerSequencer:   {self.cp.w}  | {self.ep.w}  | {self.n_lm.w}    | {self.n_ce.w}    | {self.n_li.w}    | {self.n_ei.w}    | {self.n_la.w}    | {self.ea.w}  | {self.su.w}  | {self.eu.w}  | {self.n_lb.w}    | {self.n_lo.w}    | {self.n_halt.w}")
+"""
+
+
+class Accumulator(Module):
+    def __init__(self, din, n_la, ea, dout_to_bus, dout_to_alu):
+        self.din = Input(din)
+        self.n_la = Input(n_la)
+        self.ea = Input(ea)
+        self.dout_to_bus = Output(dout_to_bus)
+        self.dout_to_alu = Output(dout_to_alu)
+        self.data = Reg(init=0, width=8)
+        self.data_next = Wire(init=0, width=8)
+        self.data_in = Wire(init=0, width=8)
+        super().__init__()
+
+    @always_ff
+    def sequential_circuit(self, reset):
+        if reset:
+            self.data.r = 0
+        else:
+            self.data.r = self.data_next.w
+
+    @always_comb
+    def combinational_circuit(self):
+        self.data_next.w = self.data.r
+
+        # 入力データ選択
+        if self.n_la.w:
+            self.data_in.w = self.data.r
+        else:
+            self.data_in.w = self.din.w
+
+        # ラッチ
+        self.data_next.w = self.data_in.w
+
+        # 出力選択
+        self.dout_to_alu.w = self.data.r
+        if self.ea.w:
+            self.dout_to_bus.w = self.data.r
+
+    def log_clock_end(self, cycle):
+        if not self.n_la.w:
+            print(f"Accumulator:   acc=0x{self.data_next.w:02X}")
+
+
+class AdderSubtractor(Module):
+    def __init__(self, din1, din2, su, eu, data_out):
+        self.din1 = Input(din1)
+        self.din2 = Input(din2)
+        self.su = Input(su)
+        self.eu = Input(eu)
+        self.data_out = Output(data_out)
+        self.op2 = Wire(init=0, width=8)
+        super().__init__()
+
+    @always_comb
+    def combinational_circuit(self):
+        # Bレジスタから入力する値の選択
+        if self.su.w:
+            self.op2.w = -self.din2.w
+        else:
+            self.op2.w = self.din2.w
+
+        # 加算
+        result = self.din1.w + self.op2.w
+
+        # 出力選択
+        if self.eu.w:
+            self.data_out.w = result
+
+    def log_clock_end(self, cycle):
+        if self.su.w and self.eu.w:
+            print(f"AdderSubtractor:   0x{self.din1.w:02X} - 0x{self.din2.w:02X} = 0x{self.data_out.w:02X}")
+        if not self.su.w and self.eu.w:
+            print(f"AdderSubtractor:   0x{self.din1.w:02X} + 0x{self.din2.w:02X} = 0x{self.data_out.w:02X}")
+
+
+class BRegister(Module):
+    def __init__(self, din, n_lb, dout):
+        self.din = Input(din)
+        self.n_lb = Input(n_lb)
+        self.dout = Output(dout)
+        self.data = Reg(init=0, width=8)
+        self.data_next = Wire(init=0, width=8)
+        self.data_in = Wire(init=0, width=8)
+        super().__init__()
+
+    @always_ff
+    def sequential_circuit(self, reset):
+        if reset:
+            self.data.r = 0
+        else:
+            self.data.r = self.data_next.w
+
+    @always_comb
+    def combinational_circuit(self):
+        self.data_next.w = self.data.r
+
+        # 入力データ選択
+        if self.n_lb.w:
+            self.data_in.w = self.data.r
+        else:
+            self.data_in.w = self.din.w
+
+        # ラッチ
+        self.data_next.w = self.data_in.w
+
+        # 出力選択
+        self.dout.w = self.data.r
+
+    def log_clock_end(self, cycle):
+        if not self.n_lb.w:
+            print(f"BRegister:     b=0x{self.data_next.w:02X}")
+
+
+class OutputRegister(Module):
+    def __init__(self, din, n_lo, dout):
+        self.din = Input(din)
+        self.n_lo = Input(n_lo)
+        self.dout = Output(dout)
+        self.data = Reg(init=0, width=8)
+        self.data_next = Wire(init=0, width=8)
+        self.data_in = Wire(init=0, width=8)
+        super().__init__()
+
+    @always_ff
+    def sequential_circuit(self, reset):
+        if reset:
+            self.data.r = 0
+        else:
+            self.data.r = self.data_next.w
+
+    @always_comb
+    def combinational_circuit(self):
+        self.data_next.w = self.data.r
+
+        # 入力データ選択
+        if self.n_lo.w:
+            self.data_in.w = self.data.r
+        else:
+            self.data_in.w = self.din.w
+
+        # ラッチ
+        self.data_next.w = self.data_in.w
+
+        # 出力選択
+        self.dout.w = self.data.r
+
+    def log_clock_end(self, cycle):
+        if not self.n_lo.w:
+            print(f"OutputRegister:   0x{self.din.w:02X}")
+
+
+class BinaryDisplay(Module):
+    def __init__(self, din):
+        self.din = Input(din)
+        self.data = Reg(init=0, width=8)
+        self.data_next = Wire(init=0, width=8)
+        super().__init__()
+
+    @always_ff
+    def sequential_circuit(self, reset):
+        self.data.r = self.data_next.w
+
+    @always_comb
+    def combinational_circuit(self):
+            self.data_next.w = self.din.w
+
+    def log_clock_end(self, cycle):
+        if self.data_next.w != self.data.r:
+            print(f"BinaryDisplay: 0x{self.data_next.w:02X}")
+
+
+class Sap1(Module):
+    def __init__(self, clr):
+        self.clr = Input(clr)
+
+        # 生成信号
+        self.n_clr = Wire(init=1)
+        self.mar_out = Wire(init=0, width=4)
+        self.inst = Wire(init=0, width=4)
+        self.n_halt = Wire(init=1)
+        self.acc_out = Wire(init=0, width=8)
+        self.breg_out = Wire(init=0, width=8)
+        self.or_out = Wire(init=0, width=8)
+
+        # bus
+        self.bus = Wire(init=0, width=8)
+
+        # control signals
+        self.cp = Wire(init=0)
+        self.ep = Wire(init=0)
+        self.n_lm = Wire(init=1)
+        self.n_ce = Wire(init=1)
+        self.n_li = Wire(init=1)
+        self.n_ei = Wire(init=1)
+        self.n_la = Wire(init=0)
+        self.ea = Wire(init=0)
+        self.su = Wire(init=0)
+        self.eu = Wire(init=0)
+        self.n_lb = Wire(init=1)
+        self.n_lo = Wire(init=1)
+
+        # モジュール
+        self.m_pc = None
+        self.m_mar = None
+        self.m_ram = None
+        self.m_ir = None
+        self.m_cs = None
+        self.m_acc = None
+        self.m_alu = None
+        self.m_breg = None
+        self.m_or = None
+        self.m_bd = None
+
+        # Program Counter
+        self.m_pc = ProgramCounter(self.n_clr, self.cp, self.ep, self.bus)
+
+        self.m_mar = InputAndMemoryAddressRegister(self.n_lm, self.bus, self.mar_out)
+
+        self.m_ram = Ram(self.mar_out, self.n_ce, self.bus)
+
+        self.m_ir = InstructionRegister(self.clr, self.bus, self.n_li, self.n_ei, self.inst,self.bus)
+
+        self.m_cs = ControllerSequencer(
+                        self.n_clr, self.inst,
+                        self.cp, self.ep, self.n_lm, self.n_ce, self.n_li,
+                        self.n_ei, self.n_la, self.ea, self.su, self.eu,
+                        self.n_lb, self.n_lo, self.n_halt)
+
+        self.m_acc = Accumulator(self.bus, self.n_la, self.ea, self.bus, self.acc_out)
+
+        self.m_alu = AdderSubtractor(self.acc_out, self.breg_out, self.su, self.eu, self.bus)
+
+        self.m_breg = BRegister(self.bus, self.n_lb, self.breg_out)
+
+        self.m_or = OutputRegister(self.bus, self.n_lo, self.or_out)
+
+        self.m_bd = BinaryDisplay(self.or_out)
+
+        super().__init__()
+
+    @always_comb
+    def combinational_circuit(self):
+        self.n_clr.w = not self.clr.w
+
+
+class tbSAP1(TestBench):
+    def __init__(self):
+        self.clr = Wire(init=1)
+        self.sap1 = Sap1(self.clr)
+        super().__init__()
+
+    @testcase
+    def run(self, simulator):
+
+        for i in range(6*6):
+            self.clr.w = 0
+            simulator.clock()
+
+    def log_clock_start(self, cycle):
+        print(f"\n--- Clock {(cycle // 6) + 1},  T {(cycle % 6) + 1} ---")
+
+
+if __name__ == "__main__":
+    # 依存関係追跡を有効化
+    config = SimConfig()
+    tb = tbSAP1()
+
+    sim = Simulator(config, tb)
+    sim.reset()
+    sim.testcase("run")

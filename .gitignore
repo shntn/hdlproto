@@ -180,3 +180,6 @@ Desktop.ini
 # Temporary files
 *.tmp
 *.temp
+
+# User-specific files
+logs/
