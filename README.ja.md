@@ -27,6 +27,10 @@ pip install -e .
 
 - Python 3.10 以上
 
+## ドキュメント
+
+HDLproto のより詳細な使い方、特に Verilog の経験がある方向けの解説は、こちらの[スタートガイド](doc/getting_started.jp.md)をご覧ください。
+
 ## クイックスタート（最小サンプル）
 
 以下を `quickstart.py` に保存して実行してください。

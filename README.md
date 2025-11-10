@@ -30,6 +30,10 @@ pip install -e .
 
 Tip (running examples from the repo without installing): PYTHONPATH=. python example/ex_module.py
 
+## Documentation
+
+For a detailed guide on how to use HDLproto, especially for those with Verilog experience, please see our [Getting Started Guide](doc/getting_started.md).
+
 ## Quick Start (minimal example)
 
 Save the script below as quickstart.py and run it.
