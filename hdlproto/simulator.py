@@ -52,11 +52,11 @@ class Simulator:
         self.exector.evaluate_always_ff(reset=True)
         self.exector.evaluate_always_comb()
 
-    def clock(self):
+    def clock(self, edge: str = 'pos'):
         self.exector.evaluate_external()
         self.tb.log_clock_start(self.clock_cycle)
         self.exector.log_clock_start(self.clock_cycle)
-        self.exector.evaluate_always_ff(reset=False)
+        self.exector.evaluate_always_ff(reset=False, edge=edge)
         self.exector.evaluate_always_comb()
         self.exector.log_clock_end(self.clock_cycle)
         self.clock_cycle += 1
@@ -85,9 +85,12 @@ class SimulationExector:
     def evaluate_external(self):
         self.signal_manager.update_externals()
 
-    def evaluate_always_ff(self, reset=False):
+    def evaluate_always_ff(self, reset=False, edge: str = 'pos'):
         self.state = SimulationState.ALWAYS_FF
-        self.function_manager.evaluate_always_ff(reset)
+        if edge == 'pos':
+            self.function_manager.evaluate_always_ff_pos(reset)
+        else:
+            self.function_manager.evaluate_always_ff_neg(reset)
         self.signal_manager.update_regs()
         self.state = SimulationState.IDLE
 

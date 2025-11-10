@@ -64,7 +64,8 @@ class SignalManager:
         if signal_source == EventSource.REG and function_phase == EventSource.ALWAYS_COMB:
             raise SignalInvalidAccess(f"Reg {signal_label} cannot be written inside always_comb.")
         wire_sources = (EventSource.WIRE, EventSource.INPUT, EventSource.OUTPUT, EventSource.EXTERNAL)
-        if signal_source in wire_sources and function_phase == EventSource.ALWAYS_FF:
+        ff_phases = (EventSource.ALWAYS_FF, EventSource.ALWAYS_FF_POS, EventSource.ALWAYS_FF_NEG)
+        if signal_source in wire_sources and function_phase in ff_phases:
             raise SignalInvalidAccess(f"Wire/Input/Output {signal_label} cannot be written inside always_ff.")
 
     def _ensure_no_conflict(self, signal_label: str, function_info: dict):

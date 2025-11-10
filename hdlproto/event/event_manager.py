@@ -22,8 +22,12 @@ _EVENT_ROUTE_MAP = {
     (EventType.SIGNAL_WRITE_TRACKED, EventSource.OUTPUT): (EventDestination.SIGNAL_MANAGER,),
     (EventType.FUNCTION_START, EventSource.ALWAYS_COMB): (EventDestination.FUNCTION_MANAGER,),
     (EventType.FUNCTION_START, EventSource.ALWAYS_FF): (EventDestination.FUNCTION_MANAGER,),
+    (EventType.FUNCTION_START, EventSource.ALWAYS_FF_POS): (EventDestination.FUNCTION_MANAGER,),
+    (EventType.FUNCTION_START, EventSource.ALWAYS_FF_NEG): (EventDestination.FUNCTION_MANAGER,),
     (EventType.FUNCTION_END, EventSource.ALWAYS_COMB): (EventDestination.FUNCTION_MANAGER,),
     (EventType.FUNCTION_END, EventSource.ALWAYS_FF): (EventDestination.FUNCTION_MANAGER,),
+    (EventType.FUNCTION_END, EventSource.ALWAYS_FF_POS): (EventDestination.FUNCTION_MANAGER,),
+    (EventType.FUNCTION_END, EventSource.ALWAYS_FF_NEG): (EventDestination.FUNCTION_MANAGER,),
 }
 
 class EventManager:

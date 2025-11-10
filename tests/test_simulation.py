@@ -109,6 +109,66 @@ def test_pass_through_shows_ff_before_comb():
     assert sim.tb.history == [5, 7, 1]
 
 
+class DualEdge(Module):
+    def __init__(self, reset_wire, pos_wire, neg_wire):
+        self.reset = Input(reset_wire)
+        self.pos_out = Output(pos_wire)
+        self.neg_out = Output(neg_wire)
+        self.pos_reg = Reg(init=0, width=4)
+        self.neg_reg = Reg(init=0, width=4)
+        super().__init__()
+
+    @always_ff(edge='pos')
+    def pos_logic(self, reset):
+        if self.reset.w:
+            self.pos_reg.r = 0
+        else:
+            self.pos_reg.r = (self.pos_reg.r + 1) % 16
+
+    @always_ff(edge='neg')
+    def neg_logic(self, reset):
+        if self.reset.w:
+            self.neg_reg.r = 0
+        else:
+            self.neg_reg.r = self.pos_reg.r
+
+    @always_comb
+    def drive(self):
+        self.pos_out.w = self.pos_reg.r
+        self.neg_out.w = self.neg_reg.r
+
+
+class TbDualEdge(HDLTestBench):
+    def __init__(self):
+        self.reset = Wire(init=1)
+        self.pos_wire = Wire(init=0, width=4)
+        self.neg_wire = Wire(init=0, width=4)
+        self.dut = DualEdge(self.reset, self.pos_wire, self.neg_wire)
+        self.history = []
+        super().__init__()
+
+    @hdl_testcase
+    def run(self, simulator):
+        simulator.clock(edge='pos')
+        simulator.clock(edge='neg')
+        self.reset.w = 0
+        for _ in range(3):
+            simulator.clock(edge='pos')
+            self.history.append(('pos', self.pos_wire.w))
+            simulator.clock(edge='neg')
+            self.history.append(('neg', self.neg_wire.w))
+
+
+def test_dual_edge_flops_advance_on_pos_and_neg_edges():
+    sim = build_simulator(TbDualEdge)
+    sim.testcase("run")
+    assert sim.tb.history == [
+        ('pos', 1), ('neg', 1),
+        ('pos', 2), ('neg', 2),
+        ('pos', 3), ('neg', 3),
+    ]
+
+
 class TbMultipleTestcases(HDLTestBench):
     def __init__(self):
         self.log = []

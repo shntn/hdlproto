@@ -83,7 +83,11 @@ class EnvironmentBuilder:
                     if func.type == 'always_comb':
                         self.function_manager.always_comb_functions.append(func)
                     elif func.type == 'always_ff':
-                        self.function_manager.always_ff_functions.append(func)
+                        edge = getattr(func, '_hdlproto_ff_edge', 'pos')
+                        if edge == 'pos':
+                            self.function_manager.always_ff_pos_functions.append(func)
+                        else:
+                            self.function_manager.always_ff_neg_functions.append(func)
 
     def _collect_function_bindings(self):
         self._function_bindings.clear()

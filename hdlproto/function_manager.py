@@ -7,7 +7,8 @@ from hdlproto.event import Event, EventType, EventSource
 class FunctionManager:
     def __init__(self):
         self.always_comb_functions = []
-        self.always_ff_functions = []
+        self.always_ff_pos_functions = []
+        self.always_ff_neg_functions = []
         self._current_function = None
 
     def handle_event(self, event: Event):
@@ -21,8 +22,12 @@ class FunctionManager:
         elif event.event_type == EventType.FUNCTION_END:
             self._current_function = None
 
-    def evaluate_always_ff(self, reset=False):
-        for func in self.always_ff_functions:
+    def evaluate_always_ff_pos(self, reset=False):
+        for func in self.always_ff_pos_functions:
+            func(reset)
+
+    def evaluate_always_ff_neg(self, reset=False):
+        for func in self.always_ff_neg_functions:
             func(reset)
 
     def evaluate_always_comb(self):

@@ -55,8 +55,8 @@ class Counter(Module):
         super().__init__()
 ```
 
-- *Note: Defining a `clk` is not necessary in HDLproto.*
-- *Note: HDLproto supports only `posedge` events for both `clk` and `reset`.*
+- *Note: HDLproto does not require an explicit `clk` port. Drive clock edges from the testbench via `sim.clock(edge='pos'|'neg')`.*
+- *Note: Use `@always_ff(edge='pos')` (default) or `@always_ff(edge='neg')` to describe rising- and falling-edge logic.*
 
 **Verilog:**
 
@@ -107,7 +107,7 @@ module Counter (
 
 ```python
     # (Inside Counter class)
-    @always_ff
+    @always_ff  # edge defaults to 'pos'
     def seq_logic(self, reset):
         if reset or self.rst.w:
             self.count.r = 0
@@ -115,7 +115,7 @@ module Counter (
             self.count.r = self.count_next.w
 ```
 
-- *Note: The `reset` argument in `@always_ff` is provided by the simulator.*
+- *Note: The `reset` argument in `@always_ff` is provided for backward compatibility; you can rely solely on your own reset wire (e.g., `self.rst.w`).*
 
 **Verilog:**
 

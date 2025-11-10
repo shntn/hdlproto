@@ -46,7 +46,7 @@ class Counter(Module):
         self.cnt_next = Wire(init=0, width=4)
         super().__init__()
 
-    @always_ff
+    @always_ff  # edge を省略すると posedge
     def seq(self, reset):
         if reset:
             self.cnt.r = 0
@@ -90,11 +90,14 @@ if __name__ == "__main__":
 実行イメージ:
 - 1クロック内で `@always_ff`（レジスタ更新）→`@always_comb`（ワイヤ更新）の順に評価
 - `i==3` で `en` を 0 に落とすと、カウントが止まります
+- `Simulator.clock(edge='pos')` でクロックエッジを選べます。`@always_ff(edge='neg')` と `sim.clock(edge='neg')` を使えばネゲッジ駆動も可能です。
 
 ## 設計規律（重要）
 
-- `@always_ff`: `Reg` への書き込み（`.r`）のみ有効。`Wire`/`Input`/`Output` へ書くと例外
+- `@always_ff(edge='pos' | 'neg')`: `Reg` への書き込み（`.r`）のみ有効。`edge` を省略すると `'pos'`（立上り）になります。
 - `@always_comb`: `Wire`/`Output` への書き込み（`.w`）。`Reg` へ書くと例外
+- `Simulator.clock(edge='pos')` でどちらのエッジを評価するか指定できます。`clock()` は `edge='pos'` の省略形です。
+- リセットは通常の `Input` 信号として扱ってください（例: `self.rst = Wire(...)`）。`@always_ff` に渡される `reset` 引数は下位互換のために残されていますが、自前のリセット線のみを使っても問題ありません。
 - 安定化ループ: `@always_comb` は信号が安定するまで繰り返し評価。非収束時は例外
 
 ## 主な例外

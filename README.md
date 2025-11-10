@@ -49,7 +49,7 @@ class Counter(Module):
         self.cnt_next = Wire(init=0, width=4)
         super().__init__()
 
-    @always_ff
+    @always_ff  # defaults to edge='pos'
     def seq(self, reset):
         if reset:
             self.cnt.r = 0
@@ -85,11 +85,14 @@ if __name__ == "__main__":
 What happens:
 - Within one clock, the simulator evaluates `@always_ff` (register updates) → `@always_comb` (wire/outputs)
 - Dropping `en` to 0 at `i == 3` stops the counter as expected
+- Use `Simulator.clock(edge='pos')` to pick which edge drives the sequential logic; pair `@always_ff(edge='neg')` with `sim.clock(edge='neg')` for falling-edge behavior.
 
 ## Design Rules (important)
 
-- `@always_ff`: only write to Reg via `.r` (writing `Wire`/`Input`/`Output` here is invalid)
+- `@always_ff(edge='pos' | 'neg')`: only write to Reg via `.r` (writing `Wire`/`Input`/`Output` here is invalid); omitting `edge` defaults to `'pos'`.
 - `@always_comb`: only drive `Wire`/`Output` via `.w` (writing `Reg` here is invalid)
+- `Simulator.clock(edge='pos')` drives the chosen edge; `Simulator.clock()` is shorthand for `edge='pos'`.
+- Reset is simply another `Input` signal (e.g., `self.rst = Wire(...)`) that you drive manually. The `reset` argument provided to `@always_ff` exists for backward compatibility and may be ignored if you rely solely on your own reset wire.
 - Convergence loop: `@always_comb` re-evaluates until signals stabilize; non-convergence raises an exception
 
 ## Key Exceptions

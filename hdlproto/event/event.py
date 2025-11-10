@@ -17,6 +17,8 @@ class EventSource(Enum):
     FUNCTION = auto()
     ALWAYS_COMB = auto()
     ALWAYS_FF = auto()
+    ALWAYS_FF_POS = auto()
+    ALWAYS_FF_NEG = auto()
 
 @dataclass
 class Event:

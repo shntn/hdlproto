@@ -27,19 +27,20 @@ def _create_always_decorator(type_str: str, source_type: EventSource):
                 )
                 event_handler(start_event)
 
-            result = func(self, *args, **kwargs)
-
-            if event_handler:
-                end_event = Event(
-                    event_type=EventType.FUNCTION_END,
-                    source_type=source_type,
-                    info={
-                        "module": self,
-                        "module_path": module_path,
-                        "function_name": func_name,
-                    }
-                )
-                event_handler(end_event)
+            try:
+                result = func(self, *args, **kwargs)
+            finally:
+                if event_handler:
+                    end_event = Event(
+                        event_type=EventType.FUNCTION_END,
+                        source_type=source_type,
+                        info={
+                            "module": self,
+                            "module_path": module_path,
+                            "function_name": func_name,
+                        }
+                    )
+                    event_handler(end_event)
 
             return result
 
@@ -50,7 +51,18 @@ def _create_always_decorator(type_str: str, source_type: EventSource):
     return decorator
 
 always_comb = _create_always_decorator('always_comb', EventSource.ALWAYS_COMB)
-always_ff = _create_always_decorator('always_ff', EventSource.ALWAYS_FF)
+
+
+def always_ff(_func=None, *, edge: str = 'pos'):
+    def decorator(func):
+        source_type = EventSource.ALWAYS_FF_POS if edge == 'pos' else EventSource.ALWAYS_FF_NEG
+        wrapper = _create_always_decorator('always_ff', source_type)(func)
+        wrapper._hdlproto_ff_edge = edge
+        return wrapper
+
+    if _func is not None and callable(_func):
+        return decorator(_func)
+    return decorator
 
 
 class Module:
