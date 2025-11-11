@@ -100,7 +100,6 @@ class Signal:
 
     def set(self, value):
         nbits_value = self.sign.to_bits_data(value)
-        self.base.last_write_value = nbits_value
         value_changed = nbits_value != self.base.value
         if value_changed:
             self.base.pending = nbits_value
@@ -120,7 +119,6 @@ class Signal:
         if not isinstance(raw_value, int) or not isinstance(value, int):
             raise TypeError("Invalid argument type.")
         bits_value = self.bits.set_bit(raw_value, start, stop, value)
-        self.base.last_write_value = bits_value
         value_changed = bits_value != self.base.value
         if value_changed:
             self.base.pending = bits_value
