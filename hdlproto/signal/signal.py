@@ -262,6 +262,10 @@ class Input:
     def w(self):
         return self._signal.get()
 
+    @w.setter
+    def w(self, value):
+        raise AttributeError("property 'w' of 'Input' object has no setter")
+
     def __getitem__(self, key):
         if isinstance(key, slice):
             start, stop = key.start, key.stop
