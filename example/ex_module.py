@@ -47,7 +47,7 @@ class Counter(Module):
     @always_ff((Edge.POS, 'clk'), (Edge.POS, 'reset'))
     def count_logic(self):
         """
-        Sequential logic block - executes on the clock edge.
+        Sequential logic block - executes on specified signal edges.
 
         This method demonstrates:
         - Reset behavior (synchronous reset)
