@@ -1,5 +1,6 @@
 from functools import wraps
 from hdlproto.event import Event, EventType, EventSource
+from hdlproto.state import Edge
 
 
 def _create_always_decorator(type_str: str, source_type: EventSource):
@@ -53,15 +54,31 @@ def _create_always_decorator(type_str: str, source_type: EventSource):
 always_comb = _create_always_decorator('always_comb', EventSource.ALWAYS_COMB)
 
 
-def always_ff(_func=None, *, edge: str = 'pos'):
+def always_ff(*trigger_specs):
+    """always_ff デコレータ。必ず (Edge, signal) タプルを渡す。"""
+
+    if not trigger_specs:
+        raise TypeError("@always_ff requires at least one (Edge, signal) trigger tuple.")
+
+    normalized = []
+    for spec in trigger_specs:
+        if not isinstance(spec, tuple) or len(spec) != 2:
+            raise TypeError("always_ff triggers must be tuples of (Edge, signal_name).")
+        edge_value, signal_name = spec
+        if not isinstance(edge_value, Edge):
+            raise TypeError("always_ff triggers must use Edge.POS or Edge.NEG.")
+        if not isinstance(signal_name, str):
+            raise TypeError("always_ff trigger signal must be provided as an attribute name (str).")
+        normalized.append({"edge": edge_value, "signal_name": signal_name})
+
+    primary_edge = normalized[0]["edge"]
+    source_type = EventSource.ALWAYS_FF_POS if primary_edge == Edge.POS else EventSource.ALWAYS_FF_NEG
+
     def decorator(func):
-        source_type = EventSource.ALWAYS_FF_POS if edge == 'pos' else EventSource.ALWAYS_FF_NEG
         wrapper = _create_always_decorator('always_ff', source_type)(func)
-        wrapper._hdlproto_ff_edge = edge
+        wrapper._triggers = tuple(normalized)
         return wrapper
 
-    if _func is not None and callable(_func):
-        return decorator(_func)
     return decorator
 
 

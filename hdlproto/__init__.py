@@ -6,6 +6,7 @@ from .simulator import Simulator
 from .simconfig import SimConfig
 from .error import HDLProtoError, SignalError, SignalWriteConflict, SignalInvalidAccess, SignalUnstableError, \
     ModuleError, SimulationError
+from .state import Edge
 
 __all__ = [
     "Wire",
@@ -18,6 +19,7 @@ __all__ = [
     "TestBench",
     "testcase",
     "Simulator",
-    "SimConfig"
+    "SimConfig",
+    "Edge"
 ]
 __version__ = "0.1.0"

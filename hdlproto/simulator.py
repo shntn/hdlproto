@@ -48,18 +48,28 @@ class Simulator:
     def end(self):
         self.tb.log_sim_end()
 
-    def reset(self):
-        self.exector.evaluate_always_ff(reset=True)
-        self.exector.evaluate_always_comb()
-
-    def clock(self, edge: str = 'pos'):
-        self.exector.evaluate_external()
+    def clock(self):
         self.tb.log_clock_start(self.clock_cycle)
         self.exector.log_clock_start(self.clock_cycle)
-        self.exector.evaluate_always_ff(reset=False, edge=edge)
-        self.exector.evaluate_always_comb()
+        self.config.clock.w = 0 if self.config.clock.w else 1
+        self._half_clock()
+        self.config.clock.w = 0 if self.config.clock.w else 1
+        self._half_clock()
         self.exector.log_clock_end(self.clock_cycle)
         self.clock_cycle += 1
+
+    def _half_clock(self):
+        is_write = None
+        self.exector.store_stabled_value_for_trigger()
+        self.exector.store_stabled_value_for_write()
+        self.exector.evaluate_external()
+        while is_write is not False:
+            self.exector.extract_triggerd_always_ff()
+            self.exector.evaluate_always_ff()
+            self.exector.evaluate_always_comb()
+            self.exector.update_reg_to_latest_value()
+            is_write = self.exector.is_write()
+            self.exector.store_stabled_value_for_write()
 
     def testcase(self, name: str=None):
         self.testcase_manager.run_testcase(name)
@@ -82,16 +92,21 @@ class SimulationExector:
         self.event_mediator = event_mediator
         self.event_manager = event_manager
 
+    def store_stabled_value_for_trigger(self):
+        self.signal_manager.store_stabled_value_for_trigger()
+
     def evaluate_external(self):
         self.signal_manager.update_externals()
 
-    def evaluate_always_ff(self, reset=False, edge: str = 'pos'):
+    def store_stabled_value_for_write(self):
+        self.signal_manager.store_stabled_value_for_write()
+
+    def extract_triggerd_always_ff(self):
+        self.function_manager.extract_triggerd_always_ff()
+
+    def evaluate_always_ff(self):
         self.state = SimulationState.ALWAYS_FF
-        if edge == 'pos':
-            self.function_manager.evaluate_always_ff_pos(reset)
-        else:
-            self.function_manager.evaluate_always_ff_neg(reset)
-        self.signal_manager.update_regs()
+        self.function_manager.evaluate_always_ff()
         self.state = SimulationState.IDLE
 
     def evaluate_always_comb(self):
@@ -103,6 +118,12 @@ class SimulationExector:
             if not is_unstable:
                 return iteration + 1
         raise SignalUnstableError("Signal did not stabilize. Possible combinational feedback loop detected.")
+
+    def update_reg_to_latest_value(self):
+        self.signal_manager.update_regs()
+
+    def is_write(self):
+        return self.signal_manager.is_write()
 
     def log_clock_start(self, clock_cycle):
         self.module_manager.log_clock_start(clock_cycle)

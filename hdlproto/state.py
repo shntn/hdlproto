@@ -14,6 +14,9 @@ class SignalType(Enum):
     OUTPUT = auto()
     EXTERNAL = auto()
 
+class Edge(Enum):
+    POS = auto()
+    NEG = auto()
 
 class ModuleType(Enum):
     MODULE = auto()

@@ -45,6 +45,7 @@ class EnvironmentBuilder:
         self._collect_function_bindings()
         self._assign_function_module_paths()
         self._assign_signal_module_paths()
+        self._resolve_always_ff_triggers()
         self._register_signal_event_handler(self.module_list)
         self._register_function_event_handler(self.module_list)
         return self._finalize()
@@ -83,11 +84,7 @@ class EnvironmentBuilder:
                     if func.type == 'always_comb':
                         self.function_manager.always_comb_functions.append(func)
                     elif func.type == 'always_ff':
-                        edge = getattr(func, '_hdlproto_ff_edge', 'pos')
-                        if edge == 'pos':
-                            self.function_manager.always_ff_pos_functions.append(func)
-                        else:
-                            self.function_manager.always_ff_neg_functions.append(func)
+                        self.function_manager.always_ff_functions.append(func)
 
     def _collect_function_bindings(self):
         self._function_bindings.clear()
@@ -180,6 +177,32 @@ class EnvironmentBuilder:
             setattr(function_obj, "_hdlproto_module_path", module_path)
             setattr(function_obj, "_hdlproto_func_name", func_name)
 
+    def _resolve_always_ff_triggers(self):
+        for module_container in self.module_list:
+            module = module_container.module
+            for name in module.dir():
+                method = getattr(module, name)
+                if getattr(method, 'type', None) != 'always_ff':
+                    continue
+                function_obj = getattr(method, "__func__", method)
+                triggers = getattr(function_obj, '_triggers', ())
+                resolved = []
+                for trigger in triggers:
+                    signal_name = trigger.get("signal_name")
+                    if signal_name is None:
+                        signal_obj = None
+                    else:
+                        if not hasattr(module, signal_name):
+                            raise AttributeError(
+                                f"always_ff trigger references unknown signal '{signal_name}' in module {module}"
+                            )
+                        signal_obj = getattr(module, signal_name)
+                    resolved.append({
+                        "edge": trigger.get("edge"),
+                        "signal": signal_obj,
+                    })
+                setattr(function_obj, '_resolved_triggers', tuple(resolved))
+
     def _wire_dependencies(self):
         self.event_manager.event_mediator = self.event_mediator
         self.event_manager.function_handler = self.function_manager.handle_event
@@ -196,6 +219,7 @@ class EnvironmentBuilder:
         self.simulation_exector.function_manager = self.function_manager
         self.simulation_exector.event_mediator = self.event_mediator
         self.simulation_exector.event_manager = self.event_manager
+        self.function_manager.signal_manager = self.signal_manager
 
     def _finalize(self):
         return {

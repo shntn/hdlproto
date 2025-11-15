@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 from .signal import Input, Output, Wire, Reg
 from hdlproto.event import Event, EventType, EventSource
-from hdlproto.state import SignalType
+from hdlproto.state import SignalType, Edge
 from hdlproto.error import SignalInvalidAccess, SignalWriteConflict
 
 if TYPE_CHECKING:
@@ -24,6 +24,19 @@ class SignalManager:
     def handle_event(self, event: Event):
         if event.event_type == EventType.SIGNAL_WRITE_TRACKED:
             self._handle_signal_write_tracked(event)
+
+    def store_stabled_value_for_trigger(self):
+        signals = self.signal_list.of_type((SignalType.WIRE, SignalType.INPUT, SignalType.OUTPUT))
+        signals.execute("store_stabled_value_for_trigger")
+
+    def is_edge_match_expected(self, signal, edge: Edge):
+        return signal.is_write() and signal.is_edge_match_expected(edge)
+
+    def store_stabled_value_for_write(self):
+        self.signal_list.execute("store_stabled_value_for_write")
+
+    def is_write(self):
+        return any(self.signal_list.execute("is_write"))
 
     def update_externals(self):
         signals = self.signal_list.of_type(SignalType.EXTERNAL)

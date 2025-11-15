@@ -1,7 +1,8 @@
 from hdlproto import *
 
 class ProgramCounter(Module):
-    def __init__(self, n_clr, cp, ep, pc_out):
+    def __init__(self, clk, n_clr, cp, ep, pc_out):
+        self.clk = Input(clk)
         self.n_clr = Input(n_clr)
         self.cp = Input(cp)
         self.ep = Input(ep)
@@ -10,9 +11,9 @@ class ProgramCounter(Module):
         self.pc_next = Wire(init=0, width=4)
         super().__init__()
 
-    @always_ff
-    def sequential_circuit(self, reset):
-        if reset:
+    @always_ff((Edge.POS, 'clk'))
+    def sequential_circuit(self):
+        if not self.n_clr.w:
             self.pc.r = 0
         else:
             self.pc.r = self.pc_next.w
@@ -40,7 +41,8 @@ class ProgramCounter(Module):
             print(f"PC:   PC=0x{self.pc_next.w:01X}")
 
 class InputAndMemoryAddressRegister(Module):
-    def __init__(self, n_lm, ain, a):
+    def __init__(self, clk, n_lm, ain, a):
+        self.clk = Input(clk)
         self.n_lm = Input(n_lm)
         self.ain = Input(ain)
         self.a = Output(a)
@@ -49,12 +51,9 @@ class InputAndMemoryAddressRegister(Module):
         self.select_a = Wire(init=0, width=4)
         super().__init__()
 
-    @always_ff
-    def sequential_circuit(self, reset):
-        if reset:
-            self.a_reg.r = 0
-        else:
-            self.a_reg.r = self.a_reg_next.w
+    @always_ff((Edge.POS, 'clk'))
+    def sequential_circuit(self):
+        self.a_reg.r = self.a_reg_next.w
 
     @always_comb
     def combinational_circuit(self):
@@ -78,7 +77,8 @@ class InputAndMemoryAddressRegister(Module):
 
 
 class Ram(Module):
-    def __init__(self, a, n_ce, d):
+    def __init__(self, clk, a, n_ce, d):
+        self.clk = Input(clk)
         self.a = Input(a)
         self.n_ce = Input(n_ce)
         self.d = Output(d)
@@ -114,7 +114,8 @@ class Ram(Module):
 
 
 class InstructionRegister(Module):
-    def __init__(self, clr, d, n_li, n_ei, inst, imm):
+    def __init__(self, clk, clr, d, n_li, n_ei, inst, imm):
+        self.clk = Input(clk)
         self.clr = Input(clr)
         self.d = Input(d)
         self.n_li = Input(n_li)
@@ -128,9 +129,9 @@ class InstructionRegister(Module):
         self.imm_next = Wire(init=0, width=4)
         super().__init__()
 
-    @always_ff
-    def sequential_circuit(self, reset):
-        if reset:
+    @always_ff((Edge.POS, 'clk'))
+    def sequential_circuit(self):
+        if self.clr.w:
             self.inst_latch.r = 0
             self.imm_latch.r = 0
         else:
@@ -171,7 +172,8 @@ class InstructionRegister(Module):
             print(f"Instruction:   out inst={self.inst.w:1X}, imm={self.imm[3:0]:1X}")
 
 class ControllerSequencer(Module):
-    def __init__(self, n_clr, inst, cp, ep, n_lm, n_ce, n_li, n_ei, n_la, ea, su, eu, n_lb, n_lo, n_halt):
+    def __init__(self, clk, n_clr, inst, cp, ep, n_lm, n_ce, n_li, n_ei, n_la, ea, su, eu, n_lb, n_lo, n_halt):
+        self.clk = Input(clk)
         self.n_clr = Input(n_clr)
         self.inst = Input(inst)
         self.cp = Output(cp)
@@ -195,9 +197,9 @@ class ControllerSequencer(Module):
         self.inst_out = Wire(init=0, width=1)
         super().__init__()
 
-    @always_ff
-    def sequential_circuit(self, reset):
-        if reset:
+    @always_ff((Edge.POS, 'clk'))
+    def sequential_circuit(self):
+        if not self.n_clr.w:
             self.t.r = 0
         else:
             self.t.r = self.t_next.w
@@ -258,7 +260,8 @@ class ControllerSequencer(Module):
 
 
 class Accumulator(Module):
-    def __init__(self, din, n_la, ea, dout_to_bus, dout_to_alu):
+    def __init__(self, clk, din, n_la, ea, dout_to_bus, dout_to_alu):
+        self.clk = Input(clk)
         self.din = Input(din)
         self.n_la = Input(n_la)
         self.ea = Input(ea)
@@ -269,12 +272,9 @@ class Accumulator(Module):
         self.data_in = Wire(init=0, width=8)
         super().__init__()
 
-    @always_ff
-    def sequential_circuit(self, reset):
-        if reset:
-            self.data.r = 0
-        else:
-            self.data.r = self.data_next.w
+    @always_ff((Edge.POS, 'clk'))
+    def sequential_circuit(self):
+        self.data.r = self.data_next.w
 
     @always_comb
     def combinational_circuit(self):
@@ -300,7 +300,8 @@ class Accumulator(Module):
 
 
 class AdderSubtractor(Module):
-    def __init__(self, din1, din2, su, eu, data_out):
+    def __init__(self, clk, din1, din2, su, eu, data_out):
+        self.clk = Input(clk)
         self.din1 = Input(din1)
         self.din2 = Input(din2)
         self.su = Input(su)
@@ -332,7 +333,8 @@ class AdderSubtractor(Module):
 
 
 class BRegister(Module):
-    def __init__(self, din, n_lb, dout):
+    def __init__(self, clk, din, n_lb, dout):
+        self.clk = Input(clk)
         self.din = Input(din)
         self.n_lb = Input(n_lb)
         self.dout = Output(dout)
@@ -341,12 +343,9 @@ class BRegister(Module):
         self.data_in = Wire(init=0, width=8)
         super().__init__()
 
-    @always_ff
-    def sequential_circuit(self, reset):
-        if reset:
-            self.data.r = 0
-        else:
-            self.data.r = self.data_next.w
+    @always_ff((Edge.POS, 'clk'))
+    def sequential_circuit(self):
+        self.data.r = self.data_next.w
 
     @always_comb
     def combinational_circuit(self):
@@ -370,7 +369,8 @@ class BRegister(Module):
 
 
 class OutputRegister(Module):
-    def __init__(self, din, n_lo, dout):
+    def __init__(self, clk, din, n_lo, dout):
+        self.clk = Input(clk)
         self.din = Input(din)
         self.n_lo = Input(n_lo)
         self.dout = Output(dout)
@@ -379,12 +379,9 @@ class OutputRegister(Module):
         self.data_in = Wire(init=0, width=8)
         super().__init__()
 
-    @always_ff
-    def sequential_circuit(self, reset):
-        if reset:
-            self.data.r = 0
-        else:
-            self.data.r = self.data_next.w
+    @always_ff((Edge.POS, 'clk'))
+    def sequential_circuit(self):
+        self.data.r = self.data_next.w
 
     @always_comb
     def combinational_circuit(self):
@@ -408,14 +405,15 @@ class OutputRegister(Module):
 
 
 class BinaryDisplay(Module):
-    def __init__(self, din):
+    def __init__(self, clk, din):
+        self.clk = Input(clk)
         self.din = Input(din)
         self.data = Reg(init=0, width=8)
         self.data_next = Wire(init=0, width=8)
         super().__init__()
 
-    @always_ff
-    def sequential_circuit(self, reset):
+    @always_ff((Edge.POS, 'clk'))
+    def sequential_circuit(self):
         self.data.r = self.data_next.w
 
     @always_comb
@@ -428,7 +426,8 @@ class BinaryDisplay(Module):
 
 
 class Sap1(Module):
-    def __init__(self, clr):
+    def __init__(self, clk, clr):
+        self.clk = Input(clk)
         self.clr = Input(clr)
 
         # 生成信号
@@ -470,29 +469,30 @@ class Sap1(Module):
         self.m_bd = None
 
         # Program Counter
-        self.m_pc = ProgramCounter(self.n_clr, self.cp, self.ep, self.bus)
+        self.m_pc = ProgramCounter(self.clk, self.n_clr, self.cp, self.ep, self.bus)
 
-        self.m_mar = InputAndMemoryAddressRegister(self.n_lm, self.bus, self.mar_out)
+        self.m_mar = InputAndMemoryAddressRegister(self.clk, self.n_lm, self.bus, self.mar_out)
 
-        self.m_ram = Ram(self.mar_out, self.n_ce, self.bus)
+        self.m_ram = Ram(self.clk, self.mar_out, self.n_ce, self.bus)
 
-        self.m_ir = InstructionRegister(self.clr, self.bus, self.n_li, self.n_ei, self.inst,self.bus)
+        self.m_ir = InstructionRegister(self.clk, self.clr, self.bus, self.n_li, self.n_ei, self.inst,self.bus)
 
         self.m_cs = ControllerSequencer(
+                        self.clk,
                         self.n_clr, self.inst,
                         self.cp, self.ep, self.n_lm, self.n_ce, self.n_li,
                         self.n_ei, self.n_la, self.ea, self.su, self.eu,
                         self.n_lb, self.n_lo, self.n_halt)
 
-        self.m_acc = Accumulator(self.bus, self.n_la, self.ea, self.bus, self.acc_out)
+        self.m_acc = Accumulator(self.clk, self.bus, self.n_la, self.ea, self.bus, self.acc_out)
 
-        self.m_alu = AdderSubtractor(self.acc_out, self.breg_out, self.su, self.eu, self.bus)
+        self.m_alu = AdderSubtractor(self.clk, self.acc_out, self.breg_out, self.su, self.eu, self.bus)
 
-        self.m_breg = BRegister(self.bus, self.n_lb, self.breg_out)
+        self.m_breg = BRegister(self.clk, self.bus, self.n_lb, self.breg_out)
 
-        self.m_or = OutputRegister(self.bus, self.n_lo, self.or_out)
+        self.m_or = OutputRegister(self.clk, self.bus, self.n_lo, self.or_out)
 
-        self.m_bd = BinaryDisplay(self.or_out)
+        self.m_bd = BinaryDisplay(self.clk, self.or_out)
 
         super().__init__()
 
@@ -503,8 +503,9 @@ class Sap1(Module):
 
 class tbSAP1(TestBench):
     def __init__(self):
+        self.clk = Wire()
         self.clr = Wire(init=1)
-        self.sap1 = Sap1(self.clr)
+        self.sap1 = Sap1(self.clk, self.clr)
         super().__init__()
 
     @testcase
@@ -519,10 +520,8 @@ class tbSAP1(TestBench):
 
 
 if __name__ == "__main__":
-    # 依存関係追跡を有効化
-    config = SimConfig()
     tb = tbSAP1()
+    config = SimConfig(clock=tb.clk)
 
     sim = Simulator(config, tb)
-    sim.reset()
     sim.testcase("run")

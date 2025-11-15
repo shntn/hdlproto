@@ -1,9 +1,11 @@
 from typing import Callable
 from hdlproto.event import Event, EventType, EventSource
-
+from hdlproto.state import Edge
 
 class SignalBase:
     def __init__(self, init=None):
+        self.prev_value_for_trigger = init
+        self.prev_value_for_write = init
         self.value = init
         self.pending = None
 
@@ -126,6 +128,20 @@ class Signal:
             self.base.pending = None
         return value_changed
 
+    def store_stabled_value_for_trigger(self):
+        self.base.prev_value_for_trigger = self.base.value
+
+    def is_edge_match_expected(self, edge: Edge):
+        posedge = not self.base.prev_value_for_trigger and self.base.value
+        negedge = self.base.prev_value_for_trigger and not self.base.value
+        return (posedge and edge == Edge.POS) or (negedge and edge == Edge.NEG)
+
+    def store_stabled_value_for_write(self):
+        self.base.prev_value_for_write = self.base.value
+
+    def is_write(self):
+        return self.base.value != self.base.prev_value_for_write
+
     def update(self):
         is_unstable = self.base.pending is not None
         if is_unstable:
@@ -202,6 +218,18 @@ class Wire:
             raise TypeError("Invalid argument type.")
         self._signal.fire_write_event(EventSource.WIRE, self, value_changed)
 
+    def store_stabled_value_for_trigger(self):
+        self._signal.store_stabled_value_for_trigger()
+
+    def is_edge_match_expected(self, edge: Edge):
+        self._signal.is_edge_match_expected(edge)
+
+    def store_stabled_value_for_write(self):
+        self._signal.store_stabled_value_for_write()
+
+    def is_write(self):
+        return self._signal.is_write()
+
     def update(self):
         return self._signal.update()
 
@@ -244,6 +272,12 @@ class Reg:
             raise TypeError("Invalid argument type.")
         self._signal.fire_write_event(EventSource.REG, self, value_changed)
 
+    def store_stabled_value_for_write(self):
+        self._signal.store_stabled_value_for_write()
+
+    def is_write(self):
+        return self._signal.is_write()
+
     def update(self):
         return self._signal.update()
 
@@ -274,6 +308,18 @@ class Input:
             return self._signal.get_bit(key, key)
         else:
             raise TypeError("Invalid argument type.")
+
+    def store_stabled_value_for_trigger(self):
+        self._signal.store_stabled_value_for_trigger()
+
+    def is_edge_match_expected(self, edge: Edge):
+        return self._signal.is_edge_match_expected(edge)
+
+    def store_stabled_value_for_write(self):
+        self._signal.store_stabled_value_for_write()
+
+    def is_write(self):
+        return self._signal.is_write()
 
     def update(self):
         return False
@@ -316,6 +362,18 @@ class Output:
         else:
             raise TypeError("Invalid argument type.")
         self._signal.fire_write_event(EventSource.OUTPUT, self, value_changed)
+
+    def store_stabled_value_for_trigger(self):
+        self._signal.store_stabled_value_for_trigger()
+
+    def is_edge_match_expected(self, edge: Edge):
+        self._signal.is_edge_match_expected(edge)
+
+    def store_stabled_value_for_write(self):
+        self._signal.store_stabled_value_for_write()
+
+    def is_write(self):
+        return self._signal.is_write()
 
     def update(self):
         return self._signal.update()

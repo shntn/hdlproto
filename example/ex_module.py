@@ -29,8 +29,10 @@ class Counter(Module):
     - In `@always_ff`, writing to `Reg` is allowed; writing to `Wire`/`Input`/`Output` is invalid.
     - In `@always_comb`, writing to `Wire`/`Output` is allowed; writing to `Reg` is invalid.
     """
-    def __init__(self, enable, count_out, flag_out):
+    def __init__(self, clk, reset, enable, count_out, flag_out):
         # Define input and output ports by wrapping Wire objects
+        self.clk = Input(clk)              # Input port for clock signal
+        self.reset = Input(reset)          # Input port for reset signal
         self.enable = Input(enable)        # Input port for enable signal
         self.count_out = Output(count_out) # Output port for counter value
         self.flag_out = Output(flag_out)
@@ -42,8 +44,8 @@ class Counter(Module):
         self.threshold = Wire(width=4)
         super().__init__()
 
-    @always_ff
-    def count_logic(self, reset: bool):
+    @always_ff((Edge.POS, 'clk'), (Edge.POS, 'reset'))
+    def count_logic(self):
         """
         Sequential logic block - executes on the clock edge.
 
@@ -53,7 +55,7 @@ class Counter(Module):
         - Register assignment using .r property
         - Modulo arithmetic for counter-wraparound
         """
-        if reset:
+        if self.reset.w:
             self.count.r = 0  # Reset counter to 0
         else:
             if self.enable.w:  # Check if enable is asserted
@@ -82,7 +84,7 @@ class Counter(Module):
         """Optional hook: called once per clock cycle just before sequential logic.
         Useful for tracing internal state during simulation.
         """
-        print(f"{cycle:>3} | en={self.enable.w} | cnt_out={self.count_out.w:>2} | flg_out={self.flag_out.w} | th={self.threshold.w} | cnt={self.count.r:>2} ")
+        print(f"{cycle:>3} | reset={self.reset.w} | en={self.enable.w} | cnt_out={self.count_out.w:>2} | flg_out={self.flag_out.w} | th={self.threshold.w} | cnt={self.count.r:>2} ")
 
 
 class TbCounter(TestBench):
@@ -90,12 +92,14 @@ class TbCounter(TestBench):
         # Create top-level wires that represent DUT ports in the simulation.
         # These wires are driven/read at the testbench level and wrapped inside
         # the DUT as `Input`/`Output` ports.
+        self.clk = Wire(init=0)                  # 1-bit clock signal (driven by Simulator)
+        self.reset = Wire(init=0)                # 1-bit reset signal (driven by TB)
         self.enable = Wire(init=1, width=1)      # 1-bit enable signal (driven by TB)
         self.count_out = Wire(init=0, width=4)   # 4-bit counter output (driven by DUT)
         self.flag_out = Wire(init=0, width=1)    # 1-bit flag output (driven by DUT)
 
         # Instantiate the DUT (Counter) with the created wires.
-        self.counter = Counter(self.enable, self.count_out, self.flag_out)
+        self.counter = Counter(self.clk, self.reset, self.enable, self.count_out, self.flag_out)
         # Build the module tree (enables automatic discovery of children/signals).
         super().__init__()
 
@@ -105,6 +109,11 @@ class TbCounter(TestBench):
         The `Simulator` instance is injected by the framework; call `simulator.clock()`
         to advance one cycle, and drive top-level `Wire`s to stimulate the DUT.
         """
+
+        self.reset.w = 1
+        simulator.clock()
+        self.reset.w = 0
+
         # Run simulation for 12 clock cycles
         for i in range(12):
             # Toggle enable signal: inactive during cycles 7–8 (1-based index)
@@ -129,30 +138,30 @@ class TbCounter(TestBench):
         print("=== Simulation End ===")
 
 if __name__ == "__main__":
-    # Create simulation configuration
-    config = SimConfig()
-
     tb = TbCounter()
+
+    # Create simulation configuration
+    config = SimConfig(clock=tb.clk)
 
     # Instantiate the simulator
     sim = Simulator(config, tb)
-    sim.reset()     # Apply reset signal to initialize internal registers
     sim.testcase('tb_counter')
     sim.end()
 
 # Example console output (truncated):
 # >>> === tb_counter Testcase Start ===
-# >>>   0 | en=1 | cnt_out= 0 | flg_out=0 | th=4 | cnt= 0
-# >>>   1 | en=1 | cnt_out= 1 | flg_out=0 | th=4 | cnt= 1
-# >>>   2 | en=1 | cnt_out= 2 | flg_out=0 | th=4 | cnt= 2
-# >>>   3 | en=1 | cnt_out= 3 | flg_out=0 | th=4 | cnt= 3
-# >>>   4 | en=1 | cnt_out= 4 | flg_out=0 | th=4 | cnt= 4
-# >>>   5 | en=0 | cnt_out= 5 | flg_out=1 | th=4 | cnt= 5
-# >>>   6 | en=0 | cnt_out= 5 | flg_out=1 | th=4 | cnt= 5
-# >>>   7 | en=1 | cnt_out= 5 | flg_out=1 | th=4 | cnt= 5
-# >>>   8 | en=1 | cnt_out= 6 | flg_out=1 | th=4 | cnt= 6
-# >>>   9 | en=1 | cnt_out= 7 | flg_out=1 | th=4 | cnt= 7
-# >>>  10 | en=1 | cnt_out= 8 | flg_out=1 | th=4 | cnt= 8
-# >>>  11 | en=1 | cnt_out= 9 | flg_out=1 | th=4 | cnt= 9
+# >>>   0 | en=1 | cnt_out= 0 | flg_out=0 | th=0 | cnt= 0 
+# >>>   1 | en=1 | cnt_out= 0 | flg_out=0 | th=4 | cnt= 0 
+# >>>   2 | en=1 | cnt_out= 1 | flg_out=0 | th=4 | cnt= 1 
+# >>>   3 | en=1 | cnt_out= 2 | flg_out=0 | th=4 | cnt= 2 
+# >>>   4 | en=1 | cnt_out= 3 | flg_out=0 | th=4 | cnt= 3 
+# >>>   5 | en=1 | cnt_out= 4 | flg_out=0 | th=4 | cnt= 4 
+# >>>   6 | en=1 | cnt_out= 5 | flg_out=1 | th=4 | cnt= 5 
+# >>>   7 | en=0 | cnt_out= 5 | flg_out=1 | th=4 | cnt= 5 
+# >>>   8 | en=0 | cnt_out= 5 | flg_out=1 | th=4 | cnt= 5 
+# >>>   9 | en=1 | cnt_out= 6 | flg_out=1 | th=4 | cnt= 6 
+# >>>  10 | en=1 | cnt_out= 7 | flg_out=1 | th=4 | cnt= 7 
+# >>>  11 | en=1 | cnt_out= 8 | flg_out=1 | th=4 | cnt= 8 
+# >>>  12 | en=1 | cnt_out= 9 | flg_out=1 | th=4 | cnt= 9 
 # >>> === tb_counter Testcase End ===
 # >>> === Simulation End ===

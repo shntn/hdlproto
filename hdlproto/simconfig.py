@@ -1,8 +1,10 @@
+from hdlproto.signal.signal import Wire
 
 
 class SimConfig:
-    def __init__(self, max_comb_loops: int = 30):
+    def __init__(self, clock: Wire, max_comb_loops: int = 30):
         self.max_comb_loops = max_comb_loops
+        self.clock = clock
 
     def __iter__(self):
         for attr in self.__dict__:
