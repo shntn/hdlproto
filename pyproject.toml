@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hdlproto"
+version = "0.2.0"
+authors = [
+    { name="shntn", email="qzt112222@nifty.com" },
+]
+description = "A Python-based HDL design prototyping framework for circuit simulation and verification"
+readme = "README.md"
+requires-python = ">=3.10"
+license-files = [
+    "LICENSE",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/shntn/hdlproto"
+
+[tool.setuptools.packages.find]
+where = ["."]
