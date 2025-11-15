@@ -12,26 +12,30 @@ from hdlproto import (
     Output,
     always_ff,
     always_comb,
+    Edge,
 )
 from hdlproto.error import SignalUnstableError
 
 
 def build_simulator(tb_cls, config: SimConfig | None = None):
-    sim_config = config or SimConfig()
     tb = tb_cls()
+    sim_config = config or SimConfig(clock=None)
+    sim_config.clock=tb.clk
     return Simulator(sim_config, tb)
 
 
 class Counter(Module):
-    def __init__(self, enable, count_out):
+    def __init__(self, clk, reset, enable, count_out):
+        self.clk = Input(clk)
+        self.reset = Input(reset)
         self.enable = Input(enable)
         self.count_out = Output(count_out)
         self.count = Reg(init=0, width=4)
         super().__init__()
 
-    @always_ff
-    def seq(self, reset):
-        if reset:
+    @always_ff((Edge.POS, 'clk'))
+    def seq(self):
+        if self.reset.w:
             self.count.r = 0
         elif self.enable.w:
             self.count.r = (self.count.r + 1) % 16
@@ -43,9 +47,11 @@ class Counter(Module):
 
 class TbCounter(HDLTestBench):
     def __init__(self):
+        self.clk = Wire()
+        self.reset = Wire(init=1)
         self.enable = Wire(init=1)
         self.count_out = Wire(init=0, width=4)
-        self.counter = Counter(self.enable, self.count_out)
+        self.counter = Counter(self.clk, self.reset, self.enable, self.count_out)
         self.samples = []
         super().__init__()
 
@@ -60,21 +66,24 @@ class TbCounter(HDLTestBench):
 
 def test_counter_simulation_runs_and_updates_outputs():
     sim = build_simulator(TbCounter)
-    sim.reset()
+    sim.clock()
+    sim.tb.reset.w = 0
     sim.testcase("run")
     assert sim.tb.samples == [1, 2, 3, 3, 3, 3]
 
 
 class PassThrough(Module):
-    def __init__(self, in_wire, out_wire):
+    def __init__(self, clk, reset, in_wire, out_wire):
+        self.clk = Input(clk)
+        self.reset = Input(reset)
         self.inp = Input(in_wire)
         self.outp = Output(out_wire)
         self.reg = Reg(init=0, width=8)
         super().__init__()
 
-    @always_ff
-    def capture(self, reset):
-        if reset:
+    @always_ff((Edge.POS, 'clk'))
+    def capture(self):
+        if self.reset.w:
             self.reg.r = 0
         else:
             self.reg.r = self.inp.w
@@ -86,9 +95,11 @@ class PassThrough(Module):
 
 class TbPassThrough(HDLTestBench):
     def __init__(self):
+        self.clk = Wire()
+        self.reset = Wire(init=1)
         self.src = Wire(init=0, width=8)
         self.dst = Wire(init=0, width=8)
-        self.dut = PassThrough(self.src, self.dst)
+        self.dut = PassThrough(self.clk, self.reset, self.src, self.dst)
         self.history = []
         super().__init__()
 
@@ -103,14 +114,16 @@ class TbPassThrough(HDLTestBench):
 
 def test_pass_through_shows_ff_before_comb():
     sim = build_simulator(TbPassThrough)
-    sim.reset()
+    sim.clock()
+    sim.tb.reset.w = 0
     sim.testcase("run")
     # 1サイクル遅れて出力に現れる（FF -> COMB の順序を確認）
     assert sim.tb.history == [5, 7, 1]
 
 
 class DualEdge(Module):
-    def __init__(self, reset_wire, pos_wire, neg_wire):
+    def __init__(self, clk, reset_wire, pos_wire, neg_wire):
+        self.clk = Input(clk)
         self.reset = Input(reset_wire)
         self.pos_out = Output(pos_wire)
         self.neg_out = Output(neg_wire)
@@ -118,15 +131,15 @@ class DualEdge(Module):
         self.neg_reg = Reg(init=0, width=4)
         super().__init__()
 
-    @always_ff(edge='pos')
-    def pos_logic(self, reset):
+    @always_ff((Edge.POS, 'clk'))
+    def pos_logic(self):
         if self.reset.w:
             self.pos_reg.r = 0
         else:
             self.pos_reg.r = (self.pos_reg.r + 1) % 16
 
-    @always_ff(edge='neg')
-    def neg_logic(self, reset):
+    @always_ff((Edge.NEG, 'clk'))
+    def neg_logic(self):
         if self.reset.w:
             self.neg_reg.r = 0
         else:
@@ -140,22 +153,22 @@ class DualEdge(Module):
 
 class TbDualEdge(HDLTestBench):
     def __init__(self):
+        self.clk = Wire()
         self.reset = Wire(init=1)
         self.pos_wire = Wire(init=0, width=4)
         self.neg_wire = Wire(init=0, width=4)
-        self.dut = DualEdge(self.reset, self.pos_wire, self.neg_wire)
+        self.dut = DualEdge(self.clk, self.reset, self.pos_wire, self.neg_wire)
         self.history = []
         super().__init__()
 
     @hdl_testcase
     def run(self, simulator):
-        simulator.clock(edge='pos')
-        simulator.clock(edge='neg')
+        simulator.clock()
         self.reset.w = 0
         for _ in range(3):
-            simulator.clock(edge='pos')
+            simulator.half_clock(1)
             self.history.append(('pos', self.pos_wire.w))
-            simulator.clock(edge='neg')
+            simulator.half_clock(0)
             self.history.append(('neg', self.neg_wire.w))
 
 
@@ -171,6 +184,7 @@ def test_dual_edge_flops_advance_on_pos_and_neg_edges():
 
 class TbMultipleTestcases(HDLTestBench):
     def __init__(self):
+        self.clk = Wire()
         self.log = []
         super().__init__()
 
@@ -185,7 +199,6 @@ class TbMultipleTestcases(HDLTestBench):
 
 def test_specific_testcase_runs_only_selected_function():
     sim = build_simulator(TbMultipleTestcases)
-    sim.reset()
     sim.testcase("alpha")
     assert sim.tb.log == ["alpha"]
     sim.tb.log.clear()
@@ -194,7 +207,8 @@ def test_specific_testcase_runs_only_selected_function():
 
 
 class UnstableComb(Module):
-    def __init__(self):
+    def __init__(self, clk):
+        self.clk = Input(clk)
         self.osc = Wire(init=0)
         super().__init__()
 
@@ -205,7 +219,8 @@ class UnstableComb(Module):
 
 class TbUnstable(HDLTestBench):
     def __init__(self):
-        self.dut = UnstableComb()
+        self.clk = Wire()
+        self.dut = UnstableComb(self.clk)
         super().__init__()
 
     @hdl_testcase
@@ -214,6 +229,7 @@ class TbUnstable(HDLTestBench):
 
 
 def test_signal_unstable_error_is_raised():
-    sim = build_simulator(TbUnstable, SimConfig(max_comb_loops=4))
+    config = SimConfig(clock=None, max_comb_loops=4)
+    sim = build_simulator(TbUnstable, config)
     with pytest.raises(SignalUnstableError):
-        sim.reset()
+        sim.clock()

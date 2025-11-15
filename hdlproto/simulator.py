@@ -58,6 +58,14 @@ class Simulator:
         self.exector.log_clock_end(self.clock_cycle)
         self.clock_cycle += 1
 
+    def half_clock(self, clock: (1|0)=0):
+        self.tb.log_clock_start(self.clock_cycle)
+        self.exector.log_clock_start(self.clock_cycle)
+        self.config.clock.w = 0 if self.config.clock.w else 1
+        self._half_clock()
+        self.exector.log_clock_end(self.clock_cycle)
+        self.clock_cycle += 1 if clock else 0
+
     def _half_clock(self):
         is_write = None
         self.exector.store_stabled_value_for_trigger()
