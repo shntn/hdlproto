@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="hdlproto",
-    version="0.1.0",
+    version="0.2.0",
     author="shntn",
     author_email="qzt112222@nifty.com",
     description="A Python-based HDL design prototyping framework for circuit simulation and verification",
