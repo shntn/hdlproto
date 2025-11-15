@@ -25,7 +25,7 @@ The table below maps common Verilog features to their HDLproto equivalents.
 | `input clk;`                 | `self.clk = Input(clk)`          | A module's input port.                                                                                        |
 | `output [3:0] q;`            | `self.q = Output(q)`             | A module's output port.                                                                                       |
 | `inout [7:0] data;`          | **Not Supported**                | `inout` ports are not supported.                                                                              |
-| `always @(posedge clk)`      | `@always_ff`                     | A decorator to describe clock-synchronous sequential circuits.                                                |
+| `always @(posedge clk)`      | `@always_ff((Edge.POS, 'clk'))`  | A decorator to describe clock-synchronous sequential circuits.                                                |
 | `always @(*)`                | `@always_comb`                   | A decorator to describe combinational circuits.                                                               |
 | `q <= d;` (Non-blocking)     | `self.q.r = self.d.w`            | **[Sequential]** `.r` represents a signal in a sequential circuit.                                            |
 | `q = d;` (Blocking)          | **Not Supported**                | **[Sequential]** Blocking assignments are not supported within `@always_ff`.                                  |
@@ -45,7 +45,8 @@ Let's look at a simple 4-bit synchronous counter, comparing the HDLproto and Ver
 from hdlproto import *
 
 class Counter(Module):
-    def __init__(self, rst, en, q_out):
+    def __init__(self, clk, rst, en, q_out):
+        self.clk = Input(clk)
         self.rst = Input(rst)
         self.en = Input(en)
         self.q_out = Output(q_out)
@@ -55,8 +56,8 @@ class Counter(Module):
         super().__init__()
 ```
 
-- *Note: HDLproto does not require an explicit `clk` port. Drive clock edges from the testbench via `sim.clock(edge='pos'|'neg')`.*
-- *Note: Use `@always_ff(edge='pos')` (default) or `@always_ff(edge='neg')` to describe rising- and falling-edge logic.*
+- *Note: HDLproto requires a `clk` port in the top-level module.*
+- *Note: Use `@always_ff((Edge.POS, 'clk')` or `@always_ff((Edge.NEG, 'clk'))` to describe rising- and falling-edge logic.*
 
 **Verilog:**
 
@@ -107,15 +108,17 @@ module Counter (
 
 ```python
     # (Inside Counter class)
-    @always_ff  # edge defaults to 'pos'
-    def seq_logic(self, reset):
-        if reset or self.rst.w:
+    @always_ff((Edge.POS, 'clk'), (Edge.POS, 'rst'))
+    def seq_logic(self):
+        if self.rst.w:
             self.count.r = 0
         else:
             self.count.r = self.count_next.w
 ```
 
-- *Note: The `reset` argument in `@always_ff` is provided for backward compatibility; you can rely solely on your own reset wire (e.g., `self.rst.w`).*
+- *Note: Use `@always_ff((Edge.POS, 'clk')` or `@always_ff((Edge.NEG, 'clk'))` to describe rising- and falling-edge logic.*
+- *Note: The strings `'clk'`, `'rst'` in the `@always_ff` decorator refer to `self.clk`, `self.rst`.*
+- *Note: The method decorated with `@always_ff` does not need to take any arguments.*
 
 **Verilog:**
 
@@ -140,15 +143,16 @@ It shows how intuitively you can write tests in Python compared to a typical Ver
 ```python
 class TestCounter(TestBench):
     def __init__(self):
+        self.clk = Wire()
         self.rst = Wire(init=0)
         self.en = Wire(init=0)
         self.q_out = Wire(width=4)
-        self.dut = Counter(self.rst, self.en, self.q_out)
+        self.dut = Counter(self.clk, self.rst, self.en, self.q_out)
         super().__init__()
 
     @testcase
     def run(self, sim):
-        # De-assert reset
+        # Apply reset first
         self.rst.w = 1
         sim.clock()
         self.rst.w = 0
@@ -161,10 +165,15 @@ class TestCounter(TestBench):
             sim.clock()
 
 if __name__ == "__main__":
-    sim = Simulator(SimConfig(), TestCounter())
-    sim.reset()
+    tb = TestCounter()
+    config = SimConfig(clock=tb.clk, max_comb_loops=20)
+    sim = Simulator(config, tb)
     sim.testcase("run")
 ```
+
+- *Note: You must specify the clock to be input to the top module with `SimConfig(clock=...)`.*
+- *Note: The clock specified in `SimConfig(clock=...)` will have its value updated by the HDLproto simulator class.*
+- *Note: `SimConfig(max_comb_loops=...)` sets the upper limit for the combinational logic stabilization loop. If signals do not converge within this count, a `SignalUnstableError` exception is raised.*
 
 **Verilog:**
 
@@ -187,4 +196,5 @@ if __name__ == "__main__":
 ## 4. Next Steps
 
 Once you understand the basics, try tackling a more complex design.
-The file [`example/ex_sap1.py`](example/ex_sap1.py) contains a complete model of a SAP-1 (Simple-As-Possible) computer implemented using this library. It serves as a good reference for hierarchical module design.
+The file [`example/ex_sap1.py`](../example/ex_sap1.py) contains a complete model of a SAP-1 (Simple-As-Possible) computer implemented using this library.
+It serves as a good reference for hierarchical module design.

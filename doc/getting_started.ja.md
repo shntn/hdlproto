@@ -26,7 +26,7 @@ HDLprotoは、Verilog/VHDLのような厳密なRTL設計に入る前の段階で
 | `input clk;`                 | `self.clk = Input(clk)`          | モジュールの入力ポートです。                                                                           |
 | `output [3:0] q;`            | `self.q = Output(q)`             | モジュールの出力ポートです。                                                                           |
 | `inout [7:0] data;`          | **非サポート**                   | `inout`ポートはサポートされていません。                                                                |
-| `always @(posedge clk)`      | `@always_ff`                     | クロック同期の順序回路（Sequential Circuit）を記述するデコレータです。                                 |
+| `always @(posedge clk)`      | `@always_ff((Edge.POS, 'clk'))`  | クロック同期の順序回路（Sequential Circuit）を記述するデコレータです。                                 |
 | `always @(*)`                | `@always_comb`                   | 組み合わせ回路（Combinational Circuit）を記述するデコレータです。                                      |
 | `q <= d;` (ノンブロッキング) | `self.q.r = self.d.w`            | **[順序回路]** `.r` は順序回路の信号を表します。                                                       |
 | `q = d;` (ブロッキング)      | **非サポート**                   | **[順序回路]** `@always_ff`内でのブロッキング代入はサポートされていません。                            |
@@ -46,7 +46,8 @@ HDLprotoは、Verilog/VHDLのような厳密なRTL設計に入る前の段階で
 from hdlproto import *
 
 class Counter(Module):
-    def __init__(self, rst, en, q_out):
+    def __init__(self, clk, rst, en, q_out):
+        self.clk = Input(clk)
         self.rst = Input(rst)
         self.en = Input(en)
         self.q_out = Output(q_out)
@@ -56,8 +57,8 @@ class Counter(Module):
         super().__init__()
 ```
 
-- *注: HDLprotoでは `clk` ポートを明示的に定義する必要はありません。テストベンチから `sim.clock(edge='pos'|'neg')` で任意のエッジを駆動します。*
-- *注: `@always_ff(edge='pos')`（デフォルト）や `@always_ff(edge='neg')` を使って立上り／立下りの順序回路を記述できます。*
+- *注: HDLprotoでは トップモジュールにクロックポートの定義が必要です。*
+- *注: `@always_ff((Edge.POS, 'clk')` や `@always_ff((Edge.NEG, 'clk'))` を使って立上り／立下りの順序回路を記述できます。*
 
 **Verilog :**
 
@@ -108,15 +109,17 @@ module Counter (
 
 ```python
     # (Counterクラス内)
-    @always_ff  # edge を省略すると 'pos'
-    def seq_logic(self, reset):
-        if reset or self.rst.w:
+    @always_ff((Edge.POS, 'clk'), (Edge.POS, 'rst'))
+    def seq_logic(self):
+        if self.rst.w:
             self.count.r = 0
         else:
             self.count.r = self.count_next.w
 ```
 
-- *注: `@always_ff` の `reset` 引数は下位互換のために提供されています。必要に応じて自分の `Wire` ベースのリセット信号のみを使っても構いません。*
+- *注: `@always_ff((Edge.POS, 'clk')` や `@always_ff((Edge.NEG, 'clk'))` を使って立上り／立下りの順序回路を記述できます。*
+- *注: `@always_ff` デコレータで指定する文字列 `'clk'`, `'rst'` は `self.clk`, `self.rst` を示しています。*
+- *注: `@always_ff` デコレータで修飾されたメソッドは引数を取る必要はありません。*
 
 **Verilog :**
 
@@ -141,15 +144,16 @@ Verilogの定型的なテストベンチと比較して、Pythonでいかに直�
 ```python
 class TestCounter(TestBench):
     def __init__(self):
+        self.clk = Wire()
         self.rst = Wire(init=0)
         self.en = Wire(init=0)
         self.q_out = Wire(width=4)
-        self.dut = Counter(self.rst, self.en, self.q_out)
+        self.dut = Counter(self.clk, self.rst, self.en, self.q_out)
         super().__init__()
 
     @testcase
     def run(self, sim):
-        # リセット解除
+        # 最初にリセットをかける
         self.rst.w = 1
         sim.clock()
         self.rst.w = 0
@@ -162,10 +166,15 @@ class TestCounter(TestBench):
             sim.clock()
 
 if __name__ == "__main__":
-    sim = Simulator(SimConfig(), TestCounter())
-    sim.reset()
+    tb = TestCounter()
+    config = SimConfig(clock=tb.clk, max_comb_loops=20)
+    sim = Simulator(config, tb)
     sim.testcase("run")
 ```
+
+- *注: `SimConfig(clock=...)` でトップモジュールに入力するクロックを指定する必要があります*
+- *注: `SimConfig(clock=...)` で指定したクロックは HDLproto のシミュレータクラスが値を更新します*
+- *注: `SimConfig(max_comb_loops=...)` で組み合わせ回路の安定化ループの上限回数を設定でき、この回数以内に信号が収束しない場合は `SignalUnstableError` 例外が発生します。*
 
 **Verilog :**
 

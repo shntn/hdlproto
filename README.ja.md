@@ -23,6 +23,14 @@ cd hdlproto
 pip install -e .
 ```
 
+### インストールせずに動作確認
+
+```bash
+git clone https://github.com/shntn/hdlproto.git
+cd hdlproto
+PYTHONPATH=. python3 example/ex_sap1.py
+```
+
 ### 要件
 
 - Python 3.10 以上
@@ -39,16 +47,18 @@ HDLproto のより詳細な使い方、特に Verilog の経験がある方向�
 from hdlproto import *
 
 class Counter(Module):
-    def __init__(self, en, out):
+    def __init__(self, clk, reset, en, out):
+        self.clk = Input(clk)
+        self.reset = Input(reset)
         self.en = Input(en)
         self.out = Output(out)
         self.cnt = Reg(init=0, width=4)
         self.cnt_next = Wire(init=0, width=4)
         super().__init__()
 
-    @always_ff  # edge を省略すると posedge
-    def seq(self, reset):
-        if reset:
+    @always_ff((Edge.POS, 'clk'))
+    def seq(self):
+        if self.reset.w:
             self.cnt.r = 0
         elif self.en.w:
             self.cnt.r = self.cnt_next.w
@@ -60,13 +70,18 @@ class Counter(Module):
 
 class TbCounter(TestBench):
     def __init__(self):
+        self.clk = Wire()
+        self.reset = Wire()
         self.en = Wire(init=1)
         self.out = Wire(init=0, width=4)
-        self.dut = Counter(self.en, self.out)
+        self.dut = Counter(self.clk, self.reset, self.en, self.out)
         super().__init__()
 
     @testcase
     def run(self, simulator):
+        self.reset.w = 1
+        simulator.clock()
+        self.reset.w = 0
         for i in range(6):
             if i == 3:  # 途中で停止
                 self.en.w = 0
@@ -74,8 +89,9 @@ class TbCounter(TestBench):
             print(f"cycle={i}, out={self.out.w}")
 
 if __name__ == "__main__":
-    sim = Simulator(SimConfig(), TbCounter())
-    sim.reset()
+    tb = TbCounter()
+    config = SimConfig(clock=tb.clk)
+    sim = Simulator(config, tb)
     sim.testcase("run")
 
 # 出力:
@@ -88,17 +104,44 @@ if __name__ == "__main__":
 ```
 
 実行イメージ:
-- 1クロック内で `@always_ff`（レジスタ更新）→`@always_comb`（ワイヤ更新）の順に評価
+- 1クロック内で `@always_ff`（レジスタ更新）と `@always_comb`（ワイヤ更新）を評価
 - `i==3` で `en` を 0 に落とすと、カウントが止まります
-- `Simulator.clock(edge='pos')` でクロックエッジを選べます。`@always_ff(edge='neg')` と `sim.clock(edge='neg')` を使えばネゲッジ駆動も可能です。
+- `Simulator.clock()` で1クロック進みます。`Simulator.half_clock(1)` or `Simulator.half_clock(0)` でエッジを選べます。
 
 ## 設計規律（重要）
 
-- `@always_ff(edge='pos' | 'neg')`: `Reg` への書き込み（`.r`）のみ有効。`edge` を省略すると `'pos'`（立上り）になります。
-- `@always_comb`: `Wire`/`Output` への書き込み（`.w`）。`Reg` へ書くと例外
-- `Simulator.clock(edge='pos')` でどちらのエッジを評価するか指定できます。`clock()` は `edge='pos'` の省略形です。
-- リセットは通常の `Input` 信号として扱ってください（例: `self.rst = Wire(...)`）。`@always_ff` に渡される `reset` 引数は下位互換のために残されていますが、自前のリセット線のみを使っても問題ありません。
-- 安定化ループ: `@always_comb` は信号が安定するまで繰り返し評価。非収束時は例外
+- `@always_ff((Edge.POS, 'clk'), ...)`: `Reg` へのノンブロッキング代入（`.r`での書き込み）のみ有効。指定した信号のエッジに反応する順序回路を記述します。
+- `@always_comb`: `Wire`/`Output` への書き込み（`.w`）。`Reg` へ書くと例外。
+- `Simulator.clock()` は `SimConfig` で指定されたクロック信号を駆動します。クロック信号はトップモジュールで `Input` として受け取り、`TestBench` で `Wire` として定義する必要があります。
+- リセットは入力信号として扱います。非同期リセットは `@always_ff` のトリガーリストにリセット信号を追加することで実現します（例: `@always_ff((Edge.POS, 'clk'), (Edge.POS, 'reset'))`）。同期リセットは、クロックエッジでのみ動作する `always_ff` ブロック内でリセット条件を記述します。
+- 収束ループ: `@always_comb` は信号が安定するまで再評価されます。収束しない場合は例外が発生します。
+
+## @always_ff の変更点
+
+`@always_ff` デコレータの仕様が更新され、より柔軟なトリガー指定が可能になりました。
+
+```python
+class MyModule(Module):
+    def __init__(self, clk, reset_n):
+        self.clk = Input(clk)
+        self.reset_n = Input(reset_n)
+        self.count = Reg(init=0, width=4)
+        super().__init__()
+
+    # クロックの立ち上がりエッジと、リセットの立ち下がりエッジでトリガー
+    @always_ff((Edge.POS, 'clk'), (Edge.NEG, 'reset_n'))
+    def counter(self):
+        if not self.reset_n.w: # reset_n が 0 の時にリセット
+            self.count.r = 0
+        else:
+            self.count.r = self.count.r + 1
+```
+
+主な変更点は以下の通りです。
+
+*   **トリガー指定方法の変更**: 従来の `edge='pos'` 引数による指定は廃止され、`(Edge, 'signal_name')` というタプルのリストでトリガーを指定する方法に統一されました。
+*   **複数トリガーのサポート**: クロックと非同期リセットのように、複数の信号エッジをトリガーとして指定できるようになりました。`Edge.POS`（立ち上がり）と `Edge.NEG`（立ち下がり）を自由に組み合わせられます。
+*   **信号名の文字列指定**: トリガーとなる信号は、モジュール内で定義された属性名（例: `'clk'`, `'reset_n'`）を文字列で指定します。
 
 ## 主な例外
 
