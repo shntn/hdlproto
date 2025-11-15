@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.2.0] - 2025-11-15
 
-### Featurea
+### Features
 
 - add edge-trigger metadata and clock handling for always_ff
   - require `@always_ff` to specify explicit `(Edge, signal_name)` tuples
