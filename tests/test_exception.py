@@ -7,15 +7,17 @@ from hdlproto import (
     SimConfig,
     Reg,
     Wire,
+    Input,
     always_comb,
     always_ff,
+    Edge,
 )
 from hdlproto.error import SignalInvalidAccess, SignalWriteConflict
 
 
 def build_simulator(testbench_cls):
-    config = SimConfig()
     tb = testbench_cls()
+    config = SimConfig(clock=tb.clk)
     return Simulator(config, tb)
 
 
@@ -30,12 +32,13 @@ class CombWritesReg(Module):
 
 
 class FFWritesWire(Module):
-    def __init__(self):
+    def __init__(self, clk):
+        self.clk = Input(clk)
         self.out = Wire()
         super().__init__()
 
-    @always_ff
-    def ff_logic(self, reset):
+    @always_ff((Edge.POS, 'clk'))
+    def ff_logic(self):
         self.out.w = 1
 
 
@@ -56,31 +59,34 @@ class ConflictingWireDrivers(Module):
 def test_always_comb_reg_write_raises_signal_invalid_access():
     class Tb(HDLTestBench):
         def __init__(self):
+            self.clk = Wire()
             self.dut = CombWritesReg()
             super().__init__()
 
     sim = build_simulator(Tb)
     with pytest.raises(SignalInvalidAccess):
-        sim.reset()
+        sim.clock()
 
 
 def test_always_ff_wire_write_raises_signal_invalid_access():
     class Tb(HDLTestBench):
         def __init__(self):
-            self.dut = FFWritesWire()
+            self.clk = Wire()
+            self.dut = FFWritesWire(self.clk)
             super().__init__()
 
     sim = build_simulator(Tb)
     with pytest.raises(SignalInvalidAccess):
-        sim.reset()
+        sim.clock()
 
 
 def test_conflicting_signal_writes_raise_signal_write_conflict():
     class Tb(HDLTestBench):
         def __init__(self):
+            self.clk = Wire()
             self.dut = ConflictingWireDrivers()
             super().__init__()
 
     sim = build_simulator(Tb)
     with pytest.raises(SignalWriteConflict):
-        sim.reset()
+        sim.clock()
