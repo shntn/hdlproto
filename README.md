@@ -38,7 +38,7 @@ PYTHONPATH=. python3 example/ex_sap1.py
 
 ## Documentation
 
-For more detailed usage of HDLproto, especially for those with Verilog experience, please see this [Getting Started Guide](doc/getting_started.md).
+For more detailed usage of HDLproto, especially for those with Verilog experience, please see this [Getting Started Guide](doc/source/getting_started.md).
 
 ## Quick Start (Minimal Example)
 

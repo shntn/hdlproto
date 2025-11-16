@@ -196,5 +196,5 @@ if __name__ == "__main__":
 ## 4. Next Steps
 
 Once you understand the basics, try tackling a more complex design.
-The file [`example/ex_sap1.py`](../example/ex_sap1.py) contains a complete model of a SAP-1 (Simple-As-Possible) computer implemented using this library.
+The file `example/ex_sap1.py` contains a complete model of a SAP-1 (Simple-As-Possible) computer implemented using this library.
 It serves as a good reference for hierarchical module design.
