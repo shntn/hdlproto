@@ -163,7 +163,7 @@ class TestInputSlice:
             in_wire[2] = 1
         assert str(e.value) == "'Input' object does not support item assignment"
         wire[2] = 1
-        wire.update()
+        wire._update()
         assert in_wire.w == 4
         assert in_wire[2] == 1
 
@@ -174,7 +174,7 @@ class TestInputSlice:
             in_wire[2:1] = 3
         assert str(e.value) == "'Input' object does not support item assignment"
         wire[2:1] = 3
-        wire.update()
+        wire._update()
         assert in_wire.w == 6
         assert in_wire[2:1] == 3
 
@@ -184,7 +184,7 @@ class TestOutputSlice:
         wire = Wire(width=4, init=0)
         out_wire = Output(wire)
         out_wire[2] = 1
-        out_wire.update()
+        out_wire._update()
         assert out_wire.w == 4
         assert out_wire[2] == 1
 
@@ -192,7 +192,7 @@ class TestOutputSlice:
         wire = Wire(width=4, init=0)
         out_wire = Output(wire)
         out_wire[2:1] = 3
-        out_wire.update()
+        out_wire._update()
         assert out_wire.w == 6
         assert out_wire[2:1] == 3
 
@@ -205,16 +205,16 @@ class TestInputSigned:
             in_wire1.w = 6
         assert str(e.value) == "property 'w' of 'Input' object has no setter"
         wire1.w = 6
-        wire1.update()
+        wire1._update()
         assert in_wire1.w == 6
         wire1.w = 17
-        wire1.update()
+        wire1._update()
         assert in_wire1.w == 1
         wire1.w = -7
-        wire1.update()
+        wire1._update()
         assert in_wire1.w == 9
         wire1.w = -15
-        wire1.update()
+        wire1._update()
         assert in_wire1.w == 1
 
     def test_signed(self):
@@ -224,16 +224,16 @@ class TestInputSigned:
             in_wire1.w = 6
         assert str(e.value) == "property 'w' of 'Input' object has no setter"
         wire1.w = 6
-        wire1.update()
+        wire1._update()
         assert in_wire1.w == 6
         wire1.w = 17
-        wire1.update()
+        wire1._update()
         assert in_wire1.w == 1
         wire1.w = -7
-        wire1.update()
+        wire1._update()
         assert in_wire1.w == -7
         wire1.w = -15
-        wire1.update()
+        wire1._update()
         assert in_wire1.w == 1
 
 
@@ -242,30 +242,30 @@ class TestOutputSigned:
         wire1 = Wire(sign=False, width=4, init=0)
         out_wire1 = Output(wire1)
         out_wire1.w = 6
-        out_wire1.update()
+        out_wire1._update()
         assert out_wire1.w == 6
         out_wire1.w = 17
-        out_wire1.update()
+        out_wire1._update()
         assert out_wire1.w == 1
         out_wire1.w = -7
-        out_wire1.update()
+        out_wire1._update()
         assert out_wire1.w == 9
         out_wire1.w = -15
-        out_wire1.update()
+        out_wire1._update()
         assert out_wire1.w == 1
 
     def test_signed(self):
         wire1 = Wire(sign=True, width=4, init=0)
         out_wire1 = Output(wire1)
         out_wire1.w = 6
-        out_wire1.update()
+        out_wire1._update()
         assert out_wire1.w == 6
         out_wire1.w = 17
-        out_wire1.update()
+        out_wire1._update()
         assert out_wire1.w == 1
         out_wire1.w = -7
-        out_wire1.update()
+        out_wire1._update()
         assert out_wire1.w == -7
         out_wire1.w = -15
-        out_wire1.update()
+        out_wire1._update()
         assert out_wire1.w == 1

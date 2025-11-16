@@ -1,17 +1,17 @@
 from dataclasses import dataclass
 from .module import Module
 from hdlproto.testbench import TestBench
-from hdlproto.state import ModuleType
+from hdlproto.state import _ModuleType
 
 @dataclass
-class ModuleContainer:
-    module: (Module | TestBench)
-    info: dict
+class _ModuleContainer:
+    _module: (Module | TestBench)
+    _info: dict
 
-class ModuleList:
-    def __init__(self, modules: list[ModuleContainer]|None=None):
-        if modules:
-            self._modules = modules
+class _ModuleList:
+    def __init__(self, _modules: list[_ModuleContainer] | None=None):
+        if _modules:
+            self._modules = _modules
         else:
             self._modules = []
         self._index = 0
@@ -27,12 +27,12 @@ class ModuleList:
             return result
         raise StopIteration
 
-    def filtered(self, filters: dict):
+    def _filtered(self, _filters: dict):
         result = []
         for container in self._modules:
             match = True
-            for key, value in filters.items():
-                val = container.info.get(key)
+            for key, value in _filters.items():
+                val = container._info.get(key)
                 if isinstance(value, (list, tuple)):
                     if val not in value:
                         match = False
@@ -43,13 +43,13 @@ class ModuleList:
                         break
             if match:
                 result.append(container)
-        return ModuleList(result)
+        return _ModuleList(result)
 
-    def of_type(self, module_type: ModuleType | tuple[ModuleType, ...]):
-        return self.filtered({"module_type": module_type})
+    def _of_type(self, _module_type: _ModuleType | tuple[_ModuleType, ...]):
+        return self._filtered({"module_type": _module_type})
 
-    def get_modules(self):
+    def _get_modules(self):
         modules = []
         for container in self._modules:
-            modules.append(container.module)
+            modules.append(container._module)
         return modules

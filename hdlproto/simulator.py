@@ -3,138 +3,144 @@ from typing import TYPE_CHECKING
 from .testbench import TestBench
 from .error import SignalUnstableError
 from .simconfig import SimConfig
-from .state import SimulationState
-from.factories import *
+from .state import _SimulationState
+from .factories import (_module_manager_factory,
+                        _function_manager_factory,
+                        _signal_manager_factory,
+                        _event_manager_factory,
+                        _event_mediator_factory,
+                        _testcase_manager_factory,
+                        _simulation_exector_factory)
 
 if TYPE_CHECKING:
     from .simconfig import SimConfig
-    from .module import ModuleManager
-    from .signal import SignalManager
-    from .function_manager import FunctionManager
-    from .event import EventManager, EventMediator
+    from .module.module_manager import _ModuleManager
+    from .signal.signal_manager import _SignalManager
+    from .function_manager import _FunctionManager
+    from .event.event_manager import _EventManager
+    from .event.event_mediator import _EventMediator
 
 class Simulator:
     def __init__(self, config: SimConfig, testbench: TestBench):
-        self.config = config
-        self.tb = testbench
-        self.clock_cycle = 0
-        self.exector = None
-        self.testcase_manager = None
+        self._config = config
+        self._tb = testbench
+        self._clock_cycle = 0
+        self._exector = None
+        self._testcase_manager = None
         self._build_environment(config, testbench)
-        pass
 
     def _build_environment(self, config: SimConfig, testbench: TestBench):
-        from .environment_builder import EnvironmentBuilder
+        from .environment_builder import _EnvironmentBuilder
 
-        env_builder = EnvironmentBuilder(
-            config=config,
-            testbench=testbench,
-            module_manager_factory=module_manager_factory,
-            function_manager_factory=function_manager_factory,
-            signal_manager_factory=signal_manager_factory,
-            event_manager_factory=event_manager_factory,
-            event_mediator_factory=event_mediator_factory,
-            testcase_manager_factory=testcase_manager_factory,
-            simulation_exector_factory=simulation_exector_factory,
+        env_builder = _EnvironmentBuilder(
+            _config=config,
+            _testbench=testbench,
+            _module_manager_factory=_module_manager_factory,
+            _function_manager_factory=_function_manager_factory,
+            _signal_manager_factory=_signal_manager_factory,
+            _event_manager_factory=_event_manager_factory,
+            _event_mediator_factory=_event_mediator_factory,
+            _testcase_manager_factory=_testcase_manager_factory,
+            _simulation_exector_factory=_simulation_exector_factory,
         )
-        env = env_builder.start_builder()
-        self.testcase_manager = env["testcase_manager"]
-        self.exector = env["simulation_exector"]
-        self.testcase_manager.simulator = self
+        env = env_builder._start_builder()
+        self._testcase_manager = env["testcase_manager"]
+        self._exector = env["simulation_exector"]
+        self._testcase_manager._simulator = self
 
     def start(self):
-        self.tb.log_sim_start(self.config)
+        self._tb.log_sim_start(self._config)
 
     def end(self):
-        self.tb.log_sim_end()
+        self._tb.log_sim_end()
 
     def clock(self):
-        self.tb.log_clock_start(self.clock_cycle)
-        self.exector.log_clock_start(self.clock_cycle)
-        self.config.clock.w = 0 if self.config.clock.w else 1
+        self._tb.log_clock_start(self._clock_cycle)
+        self._exector._log_clock_start(self._clock_cycle)
+        self._config.clock.w = 0 if self._config.clock.w else 1
         self._half_clock()
-        self.config.clock.w = 0 if self.config.clock.w else 1
+        self._config.clock.w = 0 if self._config.clock.w else 1
         self._half_clock()
-        self.exector.log_clock_end(self.clock_cycle)
-        self.clock_cycle += 1
+        self._exector._log_clock_end(self._clock_cycle)
+        self._clock_cycle += 1
 
-    def half_clock(self, clock: (1|0)=0):
-        self.tb.log_clock_start(self.clock_cycle)
-        self.exector.log_clock_start(self.clock_cycle)
-        self.config.clock.w = 0 if self.config.clock.w else 1
+    def half_clock(self, clock: int):
+        self._tb.log_clock_start(self._clock_cycle)
+        self._exector._log_clock_start(self._clock_cycle)
+        self._config.clock.w = 0 if self._config.clock.w else 1
         self._half_clock()
-        self.exector.log_clock_end(self.clock_cycle)
-        self.clock_cycle += 1 if clock else 0
+        self._exector._log_clock_end(self._clock_cycle)
+        self._clock_cycle += 1 if clock else 0
 
     def _half_clock(self):
-        is_write = None
-        self.exector.store_stabled_value_for_trigger()
-        self.exector.store_stabled_value_for_write()
-        self.exector.evaluate_external()
-        while is_write is not False:
-            self.exector.extract_triggerd_always_ff()
-            self.exector.evaluate_always_ff()
-            self.exector.evaluate_always_comb()
-            self.exector.update_reg_to_latest_value()
-            is_write = self.exector.is_write()
-            self.exector.store_stabled_value_for_write()
+        _is_write = None
+        self._exector._store_stabled_value_for_trigger()
+        self._exector._store_stabled_value_for_write()
+        self._exector._evaluate_external()
+        while _is_write is not False:
+            self._exector._extract_triggerd_always_ff()
+            self._exector._evaluate_always_ff()
+            self._exector._evaluate_always_comb()
+            self._exector._update_reg_to_latest_value()
+            _is_write = self._exector._is_write()
+            self._exector._store_stabled_value_for_write()
 
     def testcase(self, name: str=None):
-        self.testcase_manager.run_testcase(name)
+        self._testcase_manager._run_testcase(name)
 
-class SimulationExector:
+class _SimulationExector:
     def __init__(
             self,
-            sim_config: "SimConfig | None" = None,
-            module_manager: "ModuleManager | None" = None,
-            signal_manager: "SignalManager | None" = None,
-            function_manager: "FunctionManager | None" = None,
-            event_mediator: "EventMediator | None" = None,
-            event_manager: "EventManager | None" = None
+            _sim_config: "SimConfig | None" = None,
+            _module_manager: "_ModuleManager | None" = None,
+            _signal_manager: "_SignalManager | None" = None,
+            _function_manager: "_FunctionManager | None" = None,
+            _event_mediator: "_EventMediator | None" = None,
+            _event_manager: "_EventManager | None" = None
     ):
-        self.state = SimulationState.IDLE
-        self.config = sim_config
-        self.module_manager = module_manager
-        self.signal_manager = signal_manager
-        self.function_manager = function_manager
-        self.event_mediator = event_mediator
-        self.event_manager = event_manager
+        self._state = _SimulationState.IDLE
+        self._config = _sim_config
+        self._module_manager = _module_manager
+        self._signal_manager = _signal_manager
+        self._function_manager = _function_manager
+        self._event_mediator = _event_mediator
+        self._event_manager = _event_manager
 
-    def store_stabled_value_for_trigger(self):
-        self.signal_manager.store_stabled_value_for_trigger()
+    def _store_stabled_value_for_trigger(self):
+        self._signal_manager._store_stabled_value_for_trigger()
 
-    def evaluate_external(self):
-        self.signal_manager.update_externals()
+    def _evaluate_external(self):
+        self._signal_manager._update_externals()
 
-    def store_stabled_value_for_write(self):
-        self.signal_manager.store_stabled_value_for_write()
+    def _store_stabled_value_for_write(self):
+        self._signal_manager._store_stabled_value_for_write()
 
-    def extract_triggerd_always_ff(self):
-        self.function_manager.extract_triggerd_always_ff()
+    def _extract_triggerd_always_ff(self):
+        self._function_manager._extract_triggerd_always_ff()
 
-    def evaluate_always_ff(self):
-        self.state = SimulationState.ALWAYS_FF
-        self.function_manager.evaluate_always_ff()
-        self.state = SimulationState.IDLE
+    def _evaluate_always_ff(self):
+        self._state = _SimulationState.ALWAYS_FF
+        self._function_manager._evaluate_always_ff()
+        self._state = _SimulationState.IDLE
 
-    def evaluate_always_comb(self):
-        for iteration in range(self.config.max_comb_loops):
-            self.state = SimulationState.ALWAYS_COMB
-            self.function_manager.evaluate_always_comb()
-            is_unstable = self.signal_manager.update_wires()
-            self.state = SimulationState.IDLE
+    def _evaluate_always_comb(self):
+        for iteration in range(self._config.max_comb_loops):
+            self._state = _SimulationState.ALWAYS_COMB
+            self._function_manager._evaluate_always_comb()
+            is_unstable = self._signal_manager._update_wires()
+            self._state = _SimulationState.IDLE
             if not is_unstable:
                 return iteration + 1
         raise SignalUnstableError("Signal did not stabilize. Possible combinational feedback loop detected.")
 
-    def update_reg_to_latest_value(self):
-        self.signal_manager.update_regs()
+    def _update_reg_to_latest_value(self):
+        self._signal_manager._update_regs()
 
-    def is_write(self):
-        return self.signal_manager.is_write()
+    def _is_write(self):
+        return self._signal_manager._is_write()
 
-    def log_clock_start(self, clock_cycle):
-        self.module_manager.log_clock_start(clock_cycle)
+    def _log_clock_start(self, clock_cycle):
+        self._module_manager._log_clock_start(clock_cycle)
 
-    def log_clock_end(self, clock_cycle):
-        self.module_manager.log_clock_end(clock_cycle)
+    def _log_clock_end(self, clock_cycle):
+        self._module_manager._log_clock_end(clock_cycle)

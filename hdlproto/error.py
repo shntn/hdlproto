@@ -13,11 +13,3 @@ class SignalInvalidAccess(SignalError):
 
 class SignalUnstableError(SignalError):
     """Raised when a combinational signal fails to stabilize within the allowed iterations."""
-
-# --- Module関連 ---
-class ModuleError(HDLProtoError):
-    """Base class for module-related errors."""
-
-# --- シミュレーション関連 ---
-class SimulationError(HDLProtoError):
-    """Base class for simulation control errors."""

@@ -1,62 +1,62 @@
 from typing import TYPE_CHECKING
 
 from .signal import Input, Output, Wire, Reg
-from hdlproto.event import Event, EventType, EventSource
-from hdlproto.state import SignalType, Edge
+from hdlproto.event.event import _Event, _EventType, _EventSource
+from hdlproto.state import _SignalType, Edge
 from hdlproto.error import SignalInvalidAccess, SignalWriteConflict
 
 if TYPE_CHECKING:
-    from .signal_list import SignalList
+    from .signal_list import _SignalList
 
-SIGNAL_TABLE = [[False, Input, SignalType.INPUT],
-                [False, Output, SignalType.OUTPUT],
-                [False, Wire, SignalType.WIRE],
-                [False, Reg, SignalType.REG],
-                [True, Wire, SignalType.EXTERNAL]]
+_SIGNAL_TABLE = [[False, Input, _SignalType.INPUT],
+                 [False, Output, _SignalType.OUTPUT],
+                 [False, Wire, _SignalType.WIRE],
+                 [False, Reg, _SignalType.REG],
+                 [True, Wire, _SignalType.EXTERNAL]]
 
 
-class SignalManager:
+class _SignalManager:
 
-    def __init__(self, signal_list: "SignalList | None" = None):
-        self.signal_list = signal_list
+    def __init__(self, _signal_list: "_SignalList | None" = None):
+        self._signal_list = _signal_list
         self._signal_writers = {}
 
-    def handle_event(self, event: Event):
-        if event.event_type == EventType.SIGNAL_WRITE_TRACKED:
-            self._handle_signal_write_tracked(event)
+    def _handle_event(self, _event: _Event):
+        if _event._event_type == _EventType.SIGNAL_WRITE_TRACKED:
+            self._handle_signal_write_tracked(_event)
 
-    def store_stabled_value_for_trigger(self):
-        signals = self.signal_list.of_type((SignalType.WIRE, SignalType.INPUT, SignalType.OUTPUT))
-        signals.execute("store_stabled_value_for_trigger")
+    def _store_stabled_value_for_trigger(self):
+        signals = self._signal_list._of_type((_SignalType.WIRE, _SignalType.INPUT, _SignalType.OUTPUT))
+        signals._execute("_store_stabled_value_for_trigger")
 
-    def is_edge_match_expected(self, signal, edge: Edge):
-        return signal.is_write() and signal.is_edge_match_expected(edge)
+    def _is_edge_match_expected(self, signal, edge: Edge):
+        return signal._is_write() and signal._is_edge_match_expected(edge)
 
-    def store_stabled_value_for_write(self):
-        self.signal_list.execute("store_stabled_value_for_write")
+    def _store_stabled_value_for_write(self):
+        self._signal_list._execute("_store_stabled_value_for_write")
 
-    def is_write(self):
-        return any(self.signal_list.execute("is_write"))
+    def _is_write(self):
+        return any(self._signal_list._execute("_is_write"))
 
-    def update_externals(self):
-        signals = self.signal_list.of_type(SignalType.EXTERNAL)
-        is_unstable = any(signals.execute("update"))
+    def _update_externals(self):
+        signals = self._signal_list._of_type(_SignalType.EXTERNAL)
+        is_unstable = any(signals._execute("_update"))
         return is_unstable
 
-    def update_wires(self):
-        signals = self.signal_list.of_type((SignalType.WIRE, SignalType.INPUT, SignalType.OUTPUT))
-        is_unstable = any(signals.execute("update"))
+    def _update_wires(self):
+        signals = self._signal_list._of_type((_SignalType.WIRE, _SignalType.INPUT, _SignalType.OUTPUT))
+        is_unstable = any(signals._execute("_update"))
         return is_unstable
 
-    def update_regs(self):
-        signals = self.signal_list.of_type(SignalType.REG)
-        is_unstable = any(signals.execute("update"))
+    def _update_regs(self):
+        signals = self._signal_list._of_type(_SignalType.REG)
+        is_unstable = any(signals._execute("_update"))
         return is_unstable
 
-    def _handle_signal_write_tracked(self, event: Event):
-        function_info = event.info.get("function_info")
-        signal_name = event.info.get("signal_name")
-        signal_module_path = event.info.get("signal_module_path")
+    def _handle_signal_write_tracked(self, event: _Event):
+        function_info = event._info.get("function_info")
+        signal_name = event._info.get("signal_name")
+        signal_module_path = event._info.get("signal_module_path")
 
         if not function_info:
             # TestBenchなどの外部からの直接ドライブは監視対象外
@@ -65,19 +65,19 @@ class SignalManager:
         signal_label = self._format_signal_label(signal_module_path, signal_name)
         function_phase = function_info.get("source_type")
 
-        self._validate_access_rules(event.source_type, function_phase, signal_label)
+        self._validate_access_rules(event._source_type, function_phase, signal_label)
         self._ensure_no_conflict(signal_label, function_info)
         self._signal_writers[signal_label] = {
             "function_name": function_info.get("function_name"),
             "module_path": function_info.get("module_path"),
-            "source_type": function_phase,
+            "source_": function_phase,
         }
 
-    def _validate_access_rules(self, signal_source: EventSource, function_phase: EventSource | None, signal_label: str):
-        if signal_source == EventSource.REG and function_phase == EventSource.ALWAYS_COMB:
+    def _validate_access_rules(self, signal_source: _EventSource, function_phase: _EventSource | None, signal_label: str):
+        if signal_source == _EventSource.REG and function_phase == _EventSource.ALWAYS_COMB:
             raise SignalInvalidAccess(f"Reg {signal_label} cannot be written inside always_comb.")
-        wire_sources = (EventSource.WIRE, EventSource.INPUT, EventSource.OUTPUT, EventSource.EXTERNAL)
-        ff_phases = (EventSource.ALWAYS_FF, EventSource.ALWAYS_FF_POS, EventSource.ALWAYS_FF_NEG)
+        wire_sources = (_EventSource.WIRE, _EventSource.INPUT, _EventSource.OUTPUT, _EventSource.EXTERNAL)
+        ff_phases = (_EventSource.ALWAYS_FF, _EventSource.ALWAYS_FF_POS, _EventSource.ALWAYS_FF_NEG)
         if signal_source in wire_sources and function_phase in ff_phases:
             raise SignalInvalidAccess(f"Wire/Input/Output {signal_label} cannot be written inside always_ff.")
 

@@ -125,7 +125,7 @@ class TbCounter(TestBench):
     def log_sim_start(self, config):
         print("=== Simulation Start ===")
         print("  configuration:")
-        for name, value in config.items():
+        for name, value in config:
             print(f"    {name}: {value}")
 
     def log_testcase_start(self, name):
@@ -145,6 +145,7 @@ if __name__ == "__main__":
 
     # Instantiate the simulator
     sim = Simulator(config, tb)
+    sim.start()
     sim.testcase('tb_counter')
     sim.end()
 

@@ -1,4 +1,4 @@
-from hdlproto.signal.signal import Wire
+from .signal import Wire
 
 
 class SimConfig:
@@ -7,10 +7,6 @@ class SimConfig:
         self.clock = clock
 
     def __iter__(self):
-        for attr in self.__dict__:
+        for attr, value in self.__dict__.items():
             if not attr.startswith("_"):
-                yield attr
-
-    def items(self):
-        for attr in self:
-            yield attr, getattr(self, attr)
+                yield attr, value

@@ -1,13 +1,13 @@
-from .module import Module
+from .module.module import Module
 
 def testcase(func):
-    func.type = 'testcase'
+    func._type = 'testcase'
     return func
 
 
 class TestBench(Module):
     @property
-    def is_testbench(self):
+    def _is_testbench(self):
         return True
 
     def log_sim_start(self, config):

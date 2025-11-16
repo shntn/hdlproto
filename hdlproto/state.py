@@ -1,13 +1,13 @@
 from enum import Enum, auto
 
 
-class SimulationState(Enum):
+class _SimulationState(Enum):
     IDLE = auto()
     ALWAYS_FF = auto()
     ALWAYS_COMB = auto()
 
 
-class SignalType(Enum):
+class _SignalType(Enum):
     WIRE = auto()
     REG = auto()
     INPUT = auto()
@@ -18,6 +18,6 @@ class Edge(Enum):
     POS = auto()
     NEG = auto()
 
-class ModuleType(Enum):
+class _ModuleType(Enum):
     MODULE = auto()
     TESTBENCH = auto()

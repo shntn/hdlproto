@@ -1,44 +1,44 @@
 from typing import TYPE_CHECKING, Callable
-from .event import Event, EventType
+from .event import _Event, _EventType
 
 if TYPE_CHECKING:
-    from hdlproto.signal import SignalManager
-    from hdlproto.function_manager import FunctionManager
-    from hdlproto.module import ModuleManager
-    from hdlproto.simulator import Simulator, SimulationExector
+    from hdlproto.signal.signal_manager import _SignalManager
+    from hdlproto.function_manager import _FunctionManager
+    from hdlproto.module.module_manager import _ModuleManager
+    from hdlproto.simulator import Simulator, _SimulationExector
 
 
-class EventMediator:
+class _EventMediator:
     def __init__(
         self,
-        signal_manager: "SignalManager | None" = None,
-        function_manager: "FunctionManager | None" = None,
-        module_manager: "ModuleManager | None" = None,
-        simulation_exector: "SimulationExector | None" = None,
-        handler: Callable | None = None,
+        _signal_manager: "_SignalManager | None" = None,
+        _function_manager: "_FunctionManager | None" = None,
+        _module_manager: "_ModuleManager | None" = None,
+        _simulation_exector: "_SimulationExector | None" = None,
+        _handler: Callable | None = None,
     ):
-        self.signal_manager = signal_manager
-        self.function_manager = function_manager
-        self.module_manager = module_manager
-        self.simulation_exector = simulation_exector
-        self.handler = handler
+        self._signal_manager = _signal_manager
+        self._function_manager = _function_manager
+        self._module_manager = _module_manager
+        self._simulation_exector = _simulation_exector
+        self._handler = _handler
 
-    def handle_event(self, event):
-        if event.event_type == EventType.SIGNAL_WRITE:
+    def _handle_event(self, event):
+        if event._event_type == _EventType.SIGNAL_WRITE:
             self._handle_signal_write(event)
 
-    def _handle_signal_write(self, event: Event):
-        if not self.handler and not self.signal_manager:
+    def _handle_signal_write(self, event: _Event):
+        if not self._handler and not self._signal_manager:
             return
-        info = dict(event.info) if event.info else {}
+        info = dict(event._info) if event._info else {}
         function_info = None
-        if self.function_manager:
-            function_info = self.function_manager.get_current_function_info()
+        if self._function_manager:
+            function_info = self._function_manager._get_current_function_info()
         info["function_info"] = function_info
-        tracked_event = Event(
-            event_type=EventType.SIGNAL_WRITE_TRACKED,
-            source_type=event.source_type,
-            info=info
+        tracked_event = _Event(
+            _event_type=_EventType.SIGNAL_WRITE_TRACKED,
+            _source_type=event._source_type,
+            _info=info
         )
-        if self.handler:
-            self.handler(tracked_event)
+        if self._handler:
+            self._handler(tracked_event)

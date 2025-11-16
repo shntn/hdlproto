@@ -2,13 +2,13 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 
 
-class EventType(Enum):
+class _EventType(Enum):
     SIGNAL_WRITE = auto()
     SIGNAL_WRITE_TRACKED = auto()
     FUNCTION_START = auto()
     FUNCTION_END = auto()
 
-class EventSource(Enum):
+class _EventSource(Enum):
     WIRE = auto()
     REG = auto()
     INPUT = auto()
@@ -21,7 +21,7 @@ class EventSource(Enum):
     ALWAYS_FF_NEG = auto()
 
 @dataclass
-class Event:
-    event_type: EventType=None
-    source_type: EventSource=None
-    info: dict = field(default_factory=dict)
+class _Event:
+    _event_type: _EventType=None
+    _source_type: _EventSource=None
+    _info: dict = field(default_factory=dict)

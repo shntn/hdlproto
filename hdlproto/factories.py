@@ -1,28 +1,28 @@
 
-def module_manager_factory():
-    from hdlproto.module import ModuleManager
-    return ModuleManager()
+def _module_manager_factory():
+    from .module.module_manager import _ModuleManager
+    return _ModuleManager()
 
-def function_manager_factory():
-    from hdlproto.function_manager import FunctionManager
-    return FunctionManager()
+def _function_manager_factory():
+    from hdlproto.function_manager import _FunctionManager
+    return _FunctionManager()
 
-def signal_manager_factory():
-    from hdlproto.signal import SignalManager
-    return SignalManager()
+def _signal_manager_factory():
+    from .signal.signal_manager import _SignalManager
+    return _SignalManager()
 
-def event_manager_factory():
-    from hdlproto.event import EventManager
-    return EventManager()
+def _event_manager_factory():
+    from .event.event_manager import _EventManager
+    return _EventManager()
 
-def event_mediator_factory():
-    from hdlproto.event import EventMediator
-    return EventMediator()
+def _event_mediator_factory():
+    from .event.event_mediator import _EventMediator
+    return _EventMediator()
 
-def testcase_manager_factory():
-    from .testcase_manager import TestcaseManager
-    return TestcaseManager()
+def _testcase_manager_factory():
+    from .testcase_manager import _TestcaseManager
+    return _TestcaseManager()
 
-def simulation_exector_factory():
-    from .simulator import SimulationExector
-    return SimulationExector()
+def _simulation_exector_factory():
+    from .simulator import _SimulationExector
+    return _SimulationExector()

@@ -1,6 +1,6 @@
 import pytest
 from hdlproto import Wire, Reg, Module
-from hdlproto.state import SignalType
+from hdlproto.state import _SignalType
 
 class TestWire:
     def test_defined_without_param(self):
@@ -134,14 +134,14 @@ class TestWireSlice:
     def test_set_bit_and_get_bit(self):
         wire1 = Wire(width=4, init=0)
         wire1[2] = 1
-        wire1.update()
+        wire1._update()
         assert wire1.w == 4
         assert wire1[2] == 1
 
     def test_set_slice_and_get_slice(self):
         wire2 = Wire(width=4, init=0)
         wire2[2:1] = 3
-        wire2.update()
+        wire2._update()
         assert wire2.w == 6
         assert wire2[2:1] == 3
 
@@ -150,14 +150,14 @@ class TestRegSlice:
     def test_set_bit_and_get_bit(self):
         reg1 = Reg(width=4, init=0)
         reg1[2] = 1
-        reg1.update()
+        reg1._update()
         assert reg1.r == 4
         assert reg1[2] == 1
 
     def test_set_slice_and_get_slice(self):
         reg2 = Reg(width=4, init=0)
         reg2[2:1] = 3
-        reg2.update()
+        reg2._update()
         assert reg2.r == 6
         assert reg2[2:1] == 3
 
@@ -166,31 +166,31 @@ class TestWireSigned:
     def test_unsigned(self):
         wire1 = Wire(sign=False, width=4, init=0)
         wire1.w = 6
-        wire1.update()
+        wire1._update()
         assert wire1.w == 6
         wire1.w = 17
-        wire1.update()
+        wire1._update()
         assert wire1.w == 1
         wire1.w = -7
-        wire1.update()
+        wire1._update()
         assert wire1.w == 9
         wire1.w = -15
-        wire1.update()
+        wire1._update()
         assert wire1.w == 1
 
     def test_signed(self):
         wire1 = Wire(sign=True, width=4, init=0)
         wire1.w = 6
-        wire1.update()
+        wire1._update()
         assert wire1.w == 6
         wire1.w = 17
-        wire1.update()
+        wire1._update()
         assert wire1.w == 1
         wire1.w = -7
-        wire1.update()
+        wire1._update()
         assert wire1.w == -7
         wire1.w = -15
-        wire1.update()
+        wire1._update()
         assert wire1.w == 1
 
 
@@ -198,29 +198,29 @@ class TestRegSigned:
     def test_unsigned(self):
         reg1 = Reg(sign=False, width=4, init=0)
         reg1.r = 6
-        reg1.update()
+        reg1._update()
         assert reg1.r == 6
         reg1.r = 17
-        reg1.update()
+        reg1._update()
         assert reg1.r == 1
         reg1.r = -7
-        reg1.update()
+        reg1._update()
         assert reg1.r == 9
         reg1.r = -15
-        reg1.update()
+        reg1._update()
         assert reg1.r == 1
 
     def test_signed(self):
         reg1 = Reg(sign=True, width=4, init=0)
         reg1.r = 6
-        reg1.update()
+        reg1._update()
         assert reg1.r == 6
         reg1.r = 17
-        reg1.update()
+        reg1._update()
         assert reg1.r == 1
         reg1.r = -7
-        reg1.update()
+        reg1._update()
         assert reg1.r == -7
         reg1.r = -15
-        reg1.update()
+        reg1._update()
         assert reg1.r == 1

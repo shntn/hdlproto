@@ -67,9 +67,9 @@ class TbCounter(HDLTestBench):
 def test_counter_simulation_runs_and_updates_outputs():
     sim = build_simulator(TbCounter)
     sim.clock()
-    sim.tb.reset.w = 0
+    sim._tb.reset.w = 0
     sim.testcase("run")
-    assert sim.tb.samples == [1, 2, 3, 3, 3, 3]
+    assert sim._tb.samples == [1, 2, 3, 3, 3, 3]
 
 
 class PassThrough(Module):
@@ -115,10 +115,10 @@ class TbPassThrough(HDLTestBench):
 def test_pass_through_shows_ff_before_comb():
     sim = build_simulator(TbPassThrough)
     sim.clock()
-    sim.tb.reset.w = 0
+    sim._tb.reset.w = 0
     sim.testcase("run")
     # 1サイクル遅れて出力に現れる（FF -> COMB の順序を確認）
-    assert sim.tb.history == [5, 7, 1]
+    assert sim._tb.history == [5, 7, 1]
 
 
 class DualEdge(Module):
@@ -175,7 +175,7 @@ class TbDualEdge(HDLTestBench):
 def test_dual_edge_flops_advance_on_pos_and_neg_edges():
     sim = build_simulator(TbDualEdge)
     sim.testcase("run")
-    assert sim.tb.history == [
+    assert sim._tb.history == [
         ('pos', 1), ('neg', 1),
         ('pos', 2), ('neg', 2),
         ('pos', 3), ('neg', 3),
@@ -200,10 +200,10 @@ class TbMultipleTestcases(HDLTestBench):
 def test_specific_testcase_runs_only_selected_function():
     sim = build_simulator(TbMultipleTestcases)
     sim.testcase("alpha")
-    assert sim.tb.log == ["alpha"]
-    sim.tb.log.clear()
+    assert sim._tb.log == ["alpha"]
+    sim._tb.log.clear()
     sim.testcase()
-    assert sim.tb.log == ["alpha", "beta"]
+    assert sim._tb.log == ["alpha", "beta"]
 
 
 class UnstableComb(Module):

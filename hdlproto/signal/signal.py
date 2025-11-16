@@ -1,25 +1,25 @@
 from typing import Callable
-from hdlproto.event import Event, EventType, EventSource
+from hdlproto.event.event import _Event, _EventType, _EventSource
 from hdlproto.state import Edge
 
-class SignalBase:
+class _SignalBase:
     def __init__(self, init=None):
-        self.prev_value_for_trigger = init
-        self.prev_value_for_write = init
-        self.value = init
-        self.pending = None
+        self._prev_value_for_trigger = init
+        self._prev_value_for_write = init
+        self._value = init
+        self._pending = None
 
-class SignalBitOperator:
-    def __init__(self, width=1):
-        self.width = width
+class _SignalBitOperator:
+    def __init__(self, _width=1):
+        self._width = _width
 
-    def get_bit(self, value, start, stop):
+    def _get_bit(self, value, start, stop):
         mask = self.__make_mask(start, stop)
         masked_value = value & mask
         slice_value = self.__unshift_value(start, stop, masked_value)
         return slice_value
 
-    def set_bit(self, value, start, stop, new_value):
+    def _set_bit(self, value, start, stop, new_value):
         mask = self.__make_mask(start, stop)
         shifted_new_value = self.__shift_value(start, stop, new_value)
         masked_new_value = shifted_new_value & mask
@@ -46,15 +46,15 @@ class SignalBitOperator:
         return shifted_mask
 
 
-class SignalSignOperator:
-    def __init__(self, sign=False, width=1):
-        self.sign = sign
-        self.width = width
+class _SignalSignOperator:
+    def __init__(self, _sign=False, _width=1):
+        self.sign = _sign
+        self.width = _width
 
-    def to_integer(self, value):
+    def _to_integer(self, value):
         return self.__make_integer(value)
 
-    def to_bits_data(self, value):
+    def _to_bits_data(self, value):
         return self.__to_unsigned(value)
 
     def __make_integer(self, value):
@@ -79,222 +79,213 @@ class SignalSignOperator:
         return limited_unsigned
 
 
-class SignalEvents:
+class _SignalEvents:
     def __init__(self):
-        self.handler = None
+        self._handler = None
 
-    def fire(self, event: Event):
-        self.handler(event)
+    def _fire(self, _event: _Event):
+        self._handler(_event)
 
 
-class Signal:
-    def __init__(self, sign=False, width=1, init=0):
-        if sign and width == 1:
+class _Signal:
+    def __init__(self, _sign=False, _width=1, _init=0):
+        if _sign and _width == 1:
             raise ValueError("Signal width must be greater than 1.")
-        self.base = SignalBase(init)
-        self.bits = SignalBitOperator(width)
-        self.sign = SignalSignOperator(sign, width)
-        self.event = SignalEvents()
+        self._base = _SignalBase(_init)
+        self._bits = _SignalBitOperator(_width)
+        self._sign = _SignalSignOperator(_sign, _width)
+        self._event = _SignalEvents()
 
-    def get(self):
-        raw_value = self.base.value
-        return self.sign.to_integer(raw_value)
+    def _get(self):
+        raw_value = self._base._value
+        return self._sign._to_integer(raw_value)
 
-    def set(self, value):
-        nbits_value = self.sign.to_bits_data(value)
-        value_changed = nbits_value != self.base.value
+    def _set(self, value):
+        nbits_value = self._sign._to_bits_data(value)
+        value_changed = nbits_value != self._base._value
         if value_changed:
-            self.base.pending = nbits_value
+            self._base._pending = nbits_value
         else:
-            self.base.pending = None
+            self._base._pending = None
         return value_changed
 
-    def get_bit(self, start, stop):
-        raw_value = self.base.value
+    def _get_bit(self, start, stop):
+        raw_value = self._base._value
         if not isinstance(raw_value, int):
             raise TypeError("Invalid argument type.")
-        bits_value = self.bits.get_bit(raw_value, start, stop)
-        return self.sign.to_integer(bits_value)
+        bits_value = self._bits._get_bit(raw_value, start, stop)
+        return self._sign._to_integer(bits_value)
 
-    def set_bit(self, start, stop, value):
-        raw_value = self.base.value
+    def _set_bit(self, start, stop, value):
+        raw_value = self._base._value
         if not isinstance(raw_value, int) or not isinstance(value, int):
             raise TypeError("Invalid argument type.")
-        bits_value = self.bits.set_bit(raw_value, start, stop, value)
-        value_changed = bits_value != self.base.value
+        bits_value = self._bits._set_bit(raw_value, start, stop, value)
+        value_changed = bits_value != self._base._value
         if value_changed:
-            self.base.pending = bits_value
+            self._base._pending = bits_value
         else:
-            self.base.pending = None
+            self._base._pending = None
         return value_changed
 
-    def store_stabled_value_for_trigger(self):
-        self.base.prev_value_for_trigger = self.base.value
+    def _store_stabled_value_for_trigger(self):
+        self._base._prev_value_for_trigger = self._base._value
 
-    def is_edge_match_expected(self, edge: Edge):
-        posedge = not self.base.prev_value_for_trigger and self.base.value
-        negedge = self.base.prev_value_for_trigger and not self.base.value
-        return (posedge and edge == Edge.POS) or (negedge and edge == Edge.NEG)
+    def _is_edge_match_expected(self, _edge: Edge):
+        posedge = not self._base._prev_value_for_trigger and self._base._value
+        negedge = self._base._prev_value_for_trigger and not self._base._value
+        return (posedge and _edge == Edge.POS) or (negedge and _edge == Edge.NEG)
 
-    def store_stabled_value_for_write(self):
-        self.base.prev_value_for_write = self.base.value
+    def _store_stabled_value_for_write(self):
+        self._base._prev_value_for_write = self._base._value
 
-    def is_write(self):
-        return self.base.value != self.base.prev_value_for_write
+    def _is_write(self):
+        return self._base._value != self._base._prev_value_for_write
 
-    def update(self):
-        is_unstable = self.base.pending is not None
+    def _update(self):
+        is_unstable = self._base._pending is not None
         if is_unstable:
-            self.base.value = self.base.pending
-            self.base.pending = None
+            self._base._value = self._base._pending
+            self._base._pending = None
         return is_unstable
 
-    def fire(self, event: Event):
-        self.event.fire(event)
+    def _fire(self, _event: _Event):
+        self._event._fire(_event)
 
-    def fire_write_event(self, source_type: EventSource, signal_obj, value_changed: bool):
-        if not self.event.handler:
+    def _fire_write_event(self, _source_type: _EventSource, signal_obj, _value_changed: bool):
+        if not self._event._handler:
             return
-        module_path = getattr(signal_obj.context, "module_path", None)
-        signal_name = getattr(signal_obj.context, "name", None)
-        event = Event(
-            event_type=EventType.SIGNAL_WRITE,
-            source_type=source_type,
-            info={
+        module_path = getattr(signal_obj._context, "_module_path", None)
+        signal_name = getattr(signal_obj._context, "_name", None)
+        event = _Event(
+            _event_type=_EventType.SIGNAL_WRITE,
+            _source_type=_source_type,
+            _info={
                 "signal": signal_obj,
-                "value_changed": value_changed,
+                "value_changed": _value_changed,
                 "signal_name": signal_name,
                 "signal_module_path": module_path,
             }
         )
-        self.fire(event)
+        self._fire(event)
 
 
-class SignalContext:
-    __slots__ = ("name", "signal_type", "module", "module_path")
+class _SignalContext:
+    __slots__ = ("_name", "_signal_type", "_module", "_module_path")
 
     def __init__(self, signal):
-        self.name = None
-        self.signal_type = None
-        self.module = None
-        self.module_path = None
+        self._name = None
+        self._signal_type = None
+        self._module = None
+        self._module_path = None
 
 
 class Wire:
-    __slots__ = ("_signal", "context")
+    __slots__ = ("_signal", "_context")
 
     def __init__(self, sign=False, width=1, init=0):
-        self._signal = Signal(sign, width, init)
-        self.context = SignalContext(self._signal)
-
-    def set_context(self, name=None, signal_type=None, module=None):
-        self.context.set_context(name, signal_type, module)
+        self._signal = _Signal(sign, width, init)
+        self._context = _SignalContext(self._signal)
 
     @property
     def w(self):
-        return self._signal.get()
+        return self._signal._get()
 
     @w.setter
     def w(self, value):
-        value_changed = self._signal.set(value)
-        self._signal.fire_write_event(EventSource.WIRE, self, value_changed)
+        value_changed = self._signal._set(value)
+        self._signal._fire_write_event(_EventSource.WIRE, self, value_changed)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             start, stop = key.start, key.stop
-            return self._signal.get_bit(start, stop)
+            return self._signal._get_bit(start, stop)
         elif isinstance(key, int):
-            return self._signal.get_bit(key, key)
+            return self._signal._get_bit(key, key)
         else:
             raise TypeError("Invalid argument type.")
 
     def __setitem__(self, key, value):
         if isinstance(key, slice):
             start, stop = key.start, key.stop
-            value_changed = self._signal.set_bit(start, stop, value)
+            value_changed = self._signal._set_bit(start, stop, value)
         elif isinstance(key, int):
-            value_changed = self._signal.set_bit(key, key, value)
+            value_changed = self._signal._set_bit(key, key, value)
         else:
             raise TypeError("Invalid argument type.")
-        self._signal.fire_write_event(EventSource.WIRE, self, value_changed)
+        self._signal._fire_write_event(_EventSource.WIRE, self, value_changed)
 
-    def store_stabled_value_for_trigger(self):
-        self._signal.store_stabled_value_for_trigger()
+    def _store_stabled_value_for_trigger(self):
+        self._signal._store_stabled_value_for_trigger()
 
-    def is_edge_match_expected(self, edge: Edge):
-        self._signal.is_edge_match_expected(edge)
+    def _is_edge_match_expected(self, edge: Edge):
+        self._signal._is_edge_match_expected(edge)
 
-    def store_stabled_value_for_write(self):
-        self._signal.store_stabled_value_for_write()
+    def _store_stabled_value_for_write(self):
+        self._signal._store_stabled_value_for_write()
 
-    def is_write(self):
-        return self._signal.is_write()
+    def _is_write(self):
+        return self._signal._is_write()
 
-    def update(self):
-        return self._signal.update()
+    def _update(self):
+        return self._signal._update()
 
 
 class Reg:
-    __slots__ = ("_signal", "context")
+    __slots__ = ("_signal", "_context")
 
     def __init__(self, sign=False, width=1, init=0):
-        self._signal = Signal(sign, width, init)
-        self.context = SignalContext(self._signal)
-
-    def set_context(self, name=None, signal_type=None, module=None):
-        self.context.set_context(name, signal_type, module)
+        self._signal = _Signal(sign, width, init)
+        self._context = _SignalContext(self._signal)
 
     @property
     def r(self):
-        return self._signal.get()
+        return self._signal._get()
 
     @r.setter
     def r(self, value):
-        value_changed = self._signal.set(value)
-        self._signal.fire_write_event(EventSource.REG, self, value_changed)
+        value_changed = self._signal._set(value)
+        self._signal._fire_write_event(_EventSource.REG, self, value_changed)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             start, stop = key.start, key.stop
-            return self._signal.get_bit(start, stop)
+            return self._signal._get_bit(start, stop)
         elif isinstance(key, int):
-            return self._signal.get_bit(key, key)
+            return self._signal._get_bit(key, key)
         else:
             raise TypeError("Invalid argument type.")
 
     def __setitem__(self, key, value):
         if isinstance(key, slice):
             start, stop = key.start, key.stop
-            value_changed = self._signal.set_bit(start, stop, value)
+            value_changed = self._signal._set_bit(start, stop, value)
         elif isinstance(key, int):
-            value_changed = self._signal.set_bit(key, key, value)
+            value_changed = self._signal._set_bit(key, key, value)
         else:
             raise TypeError("Invalid argument type.")
-        self._signal.fire_write_event(EventSource.REG, self, value_changed)
+        self._signal._fire_write_event(_EventSource.REG, self, value_changed)
 
-    def store_stabled_value_for_write(self):
-        self._signal.store_stabled_value_for_write()
+    def _store_stabled_value_for_write(self):
+        self._signal._store_stabled_value_for_write()
 
-    def is_write(self):
-        return self._signal.is_write()
+    def _is_write(self):
+        return self._signal._is_write()
 
-    def update(self):
-        return self._signal.update()
+    def _update(self):
+        return self._signal._update()
 
 
 class Input:
-    __slots__ = ("_signal", "context")
+    __slots__ = ("_signal", "_context")
 
     def __init__(self, wire: Wire):
         self._signal = wire._signal
-        self.context = SignalContext(self._signal)
-
-    def set_context(self, name=None, signal_type=None, module=None):
-        self.context.set_context(name, signal_type, module)
+        self._context = _SignalContext(self._signal)
 
     @property
     def w(self):
-        return self._signal.get()
+        return self._signal._get()
 
     @w.setter
     def w(self, value):
@@ -303,77 +294,74 @@ class Input:
     def __getitem__(self, key):
         if isinstance(key, slice):
             start, stop = key.start, key.stop
-            return self._signal.get_bit(start, stop)
+            return self._signal._get_bit(start, stop)
         elif isinstance(key, int):
-            return self._signal.get_bit(key, key)
+            return self._signal._get_bit(key, key)
         else:
             raise TypeError("Invalid argument type.")
 
-    def store_stabled_value_for_trigger(self):
-        self._signal.store_stabled_value_for_trigger()
+    def _store_stabled_value_for_trigger(self):
+        self._signal._store_stabled_value_for_trigger()
 
-    def is_edge_match_expected(self, edge: Edge):
-        return self._signal.is_edge_match_expected(edge)
+    def _is_edge_match_expected(self, _edge: Edge):
+        return self._signal._is_edge_match_expected(_edge)
 
-    def store_stabled_value_for_write(self):
-        self._signal.store_stabled_value_for_write()
+    def _store_stabled_value_for_write(self):
+        self._signal._store_stabled_value_for_write()
 
-    def is_write(self):
-        return self._signal.is_write()
+    def _is_write(self):
+        return self._signal._is_write()
 
-    def update(self):
+    def _update(self):
         return False
 
 
 class Output:
-    __slots__ = ("_signal", "context")
+    __slots__ = ("_signal", "_context")
 
     def __init__(self, wire: Wire):
         self._signal = wire._signal
-        self.context = SignalContext(self._signal)
-
-    def set_context(self, name=None, signal_type=None, module=None):
-        self.context.set_context(name, signal_type, module)
+        self._context = _SignalContext(self._signal)
 
     @property
     def w(self):
-        return self._signal.get()
+        return self._signal._get()
 
     @w.setter
     def w(self, value):
-        value_changed = self._signal.set(value)
-        self._signal.fire_write_event(EventSource.OUTPUT, self, value_changed)
+        value_changed = self._signal._set(value)
+        self._signal._fire_write_event(_EventSource.OUTPUT, self, value_changed)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             start, stop = key.start, key.stop
-            return self._signal.get_bit(start, stop)
+            return self._signal._get_bit(start, stop)
         elif isinstance(key, int):
-            return self._signal.get_bit(key, key)
+            return self._signal._get_bit(key, key)
         else:
             raise TypeError("Invalid argument type.")
 
     def __setitem__(self, key, value):
         if isinstance(key, slice):
             start, stop = key.start, key.stop
-            value_changed = self._signal.set_bit(start, stop, value)
+            value_changed = self._signal._set_bit(start, stop, value)
         elif isinstance(key, int):
-            value_changed = self._signal.set_bit(key, key, value)
+            value_changed = self._signal._set_bit(key, key, value)
         else:
             raise TypeError("Invalid argument type.")
-        self._signal.fire_write_event(EventSource.OUTPUT, self, value_changed)
+        self._signal._fire_write_event(_EventSource.OUTPUT, self, value_changed)
 
-    def store_stabled_value_for_trigger(self):
-        self._signal.store_stabled_value_for_trigger()
+    def _store_stabled_value_for_trigger(self):
+        self._signal._store_stabled_value_for_trigger()
 
-    def is_edge_match_expected(self, edge: Edge):
-        self._signal.is_edge_match_expected(edge)
+    def _is_edge_match_expected(self, edge: Edge):
+        self._signal._is_edge_match_expected(edge)
 
-    def store_stabled_value_for_write(self):
-        self._signal.store_stabled_value_for_write()
+    def _store_stabled_value_for_write(self):
+        self._signal._store_stabled_value_for_write()
 
-    def is_write(self):
-        return self._signal.is_write()
+    def _is_write(self):
+        return self._signal._is_write()
 
-    def update(self):
-        return self._signal.update()
+    def _update(self):
+        return self._signal._update()

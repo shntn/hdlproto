@@ -1,26 +1,26 @@
 from functools import wraps
-from hdlproto.event import Event, EventType, EventSource
+from hdlproto.event.event import _Event, _EventType, _EventSource
 from hdlproto.state import Edge
 
 
-def _create_always_decorator(type_str: str, source_type: EventSource):
+def _create_always_decorator(_type_str: str, _source_type: _EventSource):
     """
     alwaysデコレータを生成するためのファクトリ関数。
     """
-    def decorator(func):
+    def _decorator(func):
         @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            event_handler = getattr(wrapper, 'handler', None)
-            module_path = getattr(wrapper, '_hdlproto_module_path', None)
+        def _wrapper(self, *args, **kwargs):
+            event_handler = getattr(_wrapper, '_handler', None)
+            module_path = getattr(_wrapper, '_hdlproto_module_path', None)
             if module_path is None:
                 module_path = getattr(self, "module_path", None)
-            func_name = getattr(wrapper, '_hdlproto_func_name', func.__name__)
+            func_name = getattr(_wrapper, '_hdlproto_func_name', func.__name__)
 
             if event_handler:
-                start_event = Event(
-                    event_type=EventType.FUNCTION_START,
-                    source_type=source_type,
-                    info={
+                start_event = _Event(
+                    _event_type=_EventType.FUNCTION_START,
+                    _source_type=_source_type,
+                    _info={
                         "module": self,
                         "module_path": module_path,
                         "function_name": func_name,
@@ -32,10 +32,10 @@ def _create_always_decorator(type_str: str, source_type: EventSource):
                 result = func(self, *args, **kwargs)
             finally:
                 if event_handler:
-                    end_event = Event(
-                        event_type=EventType.FUNCTION_END,
-                        source_type=source_type,
-                        info={
+                    end_event = _Event(
+                        _event_type=_EventType.FUNCTION_END,
+                        _source_type=_source_type,
+                        _info={
                             "module": self,
                             "module_path": module_path,
                             "function_name": func_name,
@@ -45,13 +45,13 @@ def _create_always_decorator(type_str: str, source_type: EventSource):
 
             return result
 
-        wrapper.type = type_str
-        wrapper.handler = None
-        wrapper._hdlproto_func_name = func.__name__
-        return wrapper
-    return decorator
+        _wrapper._type = _type_str
+        _wrapper._handler = None
+        _wrapper._hdlproto_func_name = func.__name__
+        return _wrapper
+    return _decorator
 
-always_comb = _create_always_decorator('always_comb', EventSource.ALWAYS_COMB)
+always_comb = _create_always_decorator('always_comb', _EventSource.ALWAYS_COMB)
 
 
 def always_ff(*trigger_specs):
@@ -72,38 +72,38 @@ def always_ff(*trigger_specs):
         normalized.append({"edge": edge_value, "signal_name": signal_name})
 
     primary_edge = normalized[0]["edge"]
-    source_type = EventSource.ALWAYS_FF_POS if primary_edge == Edge.POS else EventSource.ALWAYS_FF_NEG
+    source_type = _EventSource.ALWAYS_FF_POS if primary_edge == Edge.POS else _EventSource.ALWAYS_FF_NEG
 
-    def decorator(func):
+    def _decorator(func):
         wrapper = _create_always_decorator('always_ff', source_type)(func)
         wrapper._triggers = tuple(normalized)
         return wrapper
 
-    return decorator
+    return _decorator
 
 
 class Module:
     def __init__(self):
-        self.id = id(self)
-        self.parent = None
-        self.children = []
-        self.class_name = self.__class__.__name__
-        self.instance_name = None
-        self.module_path = None
-        self.make_module_tree()
+        self._id = id(self)
+        self._parent = None
+        self._children = []
+        self._class_name = self.__class__.__name__
+        self._instance_name = None
+        self._module_path = None
+        self._make_module_tree()
 
     @property
-    def is_testbench(self):
+    def _is_testbench(self):
         return False
 
-    def make_module_tree(self):
+    def _make_module_tree(self):
         for name, mod in self.__dict__.items():
             if isinstance(mod, Module):
-                mod.parent = self
-                mod.instance_name = name
-                self.children.append(mod)
+                mod._parent = self
+                mod._instance_name = name
+                self._children.append(mod)
 
-    def items(self, instance_type):
+    def _items(self, instance_type):
         if isinstance(instance_type, (tuple, list)):
             instance_type_list = instance_type
         else:
@@ -112,7 +112,7 @@ class Module:
             if isinstance(obj, instance_type_list):
                 yield name, obj
 
-    def dir(self):
+    def _dir(self):
         for name in dir(self):
             yield name
 

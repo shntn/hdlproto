@@ -3,22 +3,22 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .simulator import Simulator
 
-class TestcaseManager:
-    def __init__(self, simulator: "Simulator | None" = None):
-        self.simulator = simulator
-        self.testcase_functions = []
+class _TestcaseManager:
+    def __init__(self, _simulator: "Simulator | None" = None):
+        self._simulator = _simulator
+        self._testcase_functions = []
 
-    def run_testcase(self, testcase: str=None):
-        if testcase is not None:
-            for name, func in self.testcase_functions:
-                if name == testcase:
-                    self.simulator.tb.log_testcase_start(name)
-                    func(simulator=self.simulator)
-                    self.simulator.tb.log_testcase_end(name)
+    def _run_testcase(self, _testcase: str=None):
+        if _testcase is not None:
+            for name, func in self._testcase_functions:
+                if name == _testcase:
+                    self._simulator._tb.log_testcase_start(name)
+                    func(simulator=self._simulator)
+                    self._simulator._tb.log_testcase_end(name)
                     return
         else:
-            for name, func in self.testcase_functions:
-                self.simulator.tb.log_testcase_start(name)
-                func(simulator=self.simulator)
-                self.simulator.tb.log_testcase_end(name)
+            for name, func in self._testcase_functions:
+                self._simulator._tb.log_testcase_start(name)
+                func(simulator=self._simulator)
+                self._simulator._tb.log_testcase_end(name)
 

@@ -1,63 +1,63 @@
 from typing import TYPE_CHECKING, Callable
 
 from enum import Enum, auto
-from .event import Event, EventType, EventSource
+from .event import _Event, _EventType, _EventSource
 
 if TYPE_CHECKING:
-    from .event_mediator import EventMediator
+    from .event_mediator import _EventMediator
 
-class EventDestination(Enum):
+class _EventDestination(Enum):
     SIGNAL_MANAGER = auto()
     FUNCTION_MANAGER = auto()
     EVENT_MEDIATOR = auto()
 
 _EVENT_ROUTE_MAP = {
-    (EventType.SIGNAL_WRITE, EventSource.WIRE): (EventDestination.EVENT_MEDIATOR,),
-    (EventType.SIGNAL_WRITE, EventSource.REG): (EventDestination.EVENT_MEDIATOR,),
-    (EventType.SIGNAL_WRITE, EventSource.INPUT): (EventDestination.EVENT_MEDIATOR,),
-    (EventType.SIGNAL_WRITE, EventSource.OUTPUT): (EventDestination.EVENT_MEDIATOR,),
-    (EventType.SIGNAL_WRITE_TRACKED, EventSource.WIRE): (EventDestination.SIGNAL_MANAGER,),
-    (EventType.SIGNAL_WRITE_TRACKED, EventSource.REG): (EventDestination.SIGNAL_MANAGER,),
-    (EventType.SIGNAL_WRITE_TRACKED, EventSource.INPUT): (EventDestination.SIGNAL_MANAGER,),
-    (EventType.SIGNAL_WRITE_TRACKED, EventSource.OUTPUT): (EventDestination.SIGNAL_MANAGER,),
-    (EventType.FUNCTION_START, EventSource.ALWAYS_COMB): (EventDestination.FUNCTION_MANAGER,),
-    (EventType.FUNCTION_START, EventSource.ALWAYS_FF): (EventDestination.FUNCTION_MANAGER,),
-    (EventType.FUNCTION_START, EventSource.ALWAYS_FF_POS): (EventDestination.FUNCTION_MANAGER,),
-    (EventType.FUNCTION_START, EventSource.ALWAYS_FF_NEG): (EventDestination.FUNCTION_MANAGER,),
-    (EventType.FUNCTION_END, EventSource.ALWAYS_COMB): (EventDestination.FUNCTION_MANAGER,),
-    (EventType.FUNCTION_END, EventSource.ALWAYS_FF): (EventDestination.FUNCTION_MANAGER,),
-    (EventType.FUNCTION_END, EventSource.ALWAYS_FF_POS): (EventDestination.FUNCTION_MANAGER,),
-    (EventType.FUNCTION_END, EventSource.ALWAYS_FF_NEG): (EventDestination.FUNCTION_MANAGER,),
+    (_EventType.SIGNAL_WRITE, _EventSource.WIRE): (_EventDestination.EVENT_MEDIATOR,),
+    (_EventType.SIGNAL_WRITE, _EventSource.REG): (_EventDestination.EVENT_MEDIATOR,),
+    (_EventType.SIGNAL_WRITE, _EventSource.INPUT): (_EventDestination.EVENT_MEDIATOR,),
+    (_EventType.SIGNAL_WRITE, _EventSource.OUTPUT): (_EventDestination.EVENT_MEDIATOR,),
+    (_EventType.SIGNAL_WRITE_TRACKED, _EventSource.WIRE): (_EventDestination.SIGNAL_MANAGER,),
+    (_EventType.SIGNAL_WRITE_TRACKED, _EventSource.REG): (_EventDestination.SIGNAL_MANAGER,),
+    (_EventType.SIGNAL_WRITE_TRACKED, _EventSource.INPUT): (_EventDestination.SIGNAL_MANAGER,),
+    (_EventType.SIGNAL_WRITE_TRACKED, _EventSource.OUTPUT): (_EventDestination.SIGNAL_MANAGER,),
+    (_EventType.FUNCTION_START, _EventSource.ALWAYS_COMB): (_EventDestination.FUNCTION_MANAGER,),
+    (_EventType.FUNCTION_START, _EventSource.ALWAYS_FF): (_EventDestination.FUNCTION_MANAGER,),
+    (_EventType.FUNCTION_START, _EventSource.ALWAYS_FF_POS): (_EventDestination.FUNCTION_MANAGER,),
+    (_EventType.FUNCTION_START, _EventSource.ALWAYS_FF_NEG): (_EventDestination.FUNCTION_MANAGER,),
+    (_EventType.FUNCTION_END, _EventSource.ALWAYS_COMB): (_EventDestination.FUNCTION_MANAGER,),
+    (_EventType.FUNCTION_END, _EventSource.ALWAYS_FF): (_EventDestination.FUNCTION_MANAGER,),
+    (_EventType.FUNCTION_END, _EventSource.ALWAYS_FF_POS): (_EventDestination.FUNCTION_MANAGER,),
+    (_EventType.FUNCTION_END, _EventSource.ALWAYS_FF_NEG): (_EventDestination.FUNCTION_MANAGER,),
 }
 
-class EventManager:
+class _EventManager:
     def __init__(
             self,
-            event_mediator: "EventMediator | None" = None,
-            signal_handler: Callable | None = None,
-            function_handler: Callable | None = None,
-            event_mediator_handler: Callable | None = None,
+            _event_mediator: "_EventMediator | None" = None,
+            _signal_handler: Callable | None = None,
+            _function_handler: Callable | None = None,
+            _event_mediator_handler: Callable | None = None,
     ):
-        self.event_mediator = event_mediator
-        self.signal_handler = signal_handler
-        self.function_handler = function_handler
-        self.event_mediator_handler = event_mediator_handler
+        self._event_mediator = _event_mediator
+        self._signal_handler = _signal_handler
+        self._function_handler = _function_handler
+        self._event_mediator_handler = _event_mediator_handler
 
-    def get_instance(self, destination: EventDestination):
+    def _get_instance(self, _destination: _EventDestination):
         mapping = {
-            EventDestination.SIGNAL_MANAGER: self.signal_handler,
-            EventDestination.FUNCTION_MANAGER: self.function_handler,
-            EventDestination.EVENT_MEDIATOR: self.event_mediator_handler,
+            _EventDestination.SIGNAL_MANAGER: self._signal_handler,
+            _EventDestination.FUNCTION_MANAGER: self._function_handler,
+            _EventDestination.EVENT_MEDIATOR: self._event_mediator_handler,
         }
-        return mapping.get(destination)
+        return mapping.get(_destination)
 
-    def handle_event(self, event: Event):
-        key = (event.event_type, event.source_type)
+    def _handle_event(self, _event: _Event):
+        key = (_event._event_type, _event._source_type)
         destinations = _EVENT_ROUTE_MAP.get(key)
         if not destinations:
             return
         for destination in destinations:
-            instance = self.get_instance(destination)
+            instance = self._get_instance(destination)
             if not instance:
                 raise RuntimeError(f"No handler found for destination: {destination}")
-            instance(event)
+            instance(_event)
