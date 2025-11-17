@@ -8,6 +8,48 @@ and control logic during the early design stages (from spec to architecture).
 * Event-driven safety: detect rule violations, multiple drivers, and non-convergent combinational logic via exceptions
 * Easy to adopt: runs with Python only — great for learning, teaching, and rapid prototyping
 
+### About HDLproto (Concept and Scope)
+
+HDLproto is a lightweight simulation framework for emulating HDL-style (Verilog/SystemVerilog) descriptions in Python.
+It does not aim to strictly replicate HDL syntax but rather to provide a prototyping environment for concisely testing "hardware behavior models" like `always_comb` / `always_ff` and `Wire` / `Reg` within Python.
+
+### Target Goals
+
+HDLproto is designed for the following use cases:
+
+*   Verifying CPU microarchitecture designs
+*   Checking the behavior of small-scale digital circuits
+*   Prototyping control units and Finite State Machines (FSMs)
+*   Validating ideas and organizing dataflow before full HDL design
+*   Understanding the behavior of `always_ff` / `always_comb` for educational purposes
+
+The primary goal is to enable users to easily express and verify "HDL-like behavior" using only Python.
+
+### What HDLproto is NOT (Unsupported Features)
+
+*   **Code generation** to Verilog / VHDL / SystemVerilog
+*   **Logic synthesis** for FPGAs / ASICs
+*   Timing analysis or logic optimization
+*   Implementation of large-scale RTL (thousands of signals)
+
+HDLproto is strictly a **simulation environment for prototyping** and is not a tool for generating synthesizable RTL for FPGAs.
+
+### Key Features
+
+*   Build HDL-style modules and signals using only Python
+*   Faithfully simulates the behavior of `always_comb` and `always_ff`
+*   The simulator automatically handles `Wire`/`Reg` propagation and stabilization loops
+*   Automatically analyzes dependencies between modules and signals to run simulations
+*   Capable of simulating small-scale CPUs (like SAP-1 or a Z80 subset)
+
+### Intended Users
+
+*   Those who want to quickly prototype CPUs or digital circuits
+*   Those who want to verify dataflow or algorithms before starting HDL design
+*   Engineers and students who want to learn the concepts of hardware description languages
+*   Those who want to design with a hardware mindset, even without access to Verilog
+*   Those who want to experiment with circuits using the flexibility of Python
+
 ## Installation
 
 ### Installation from PyPI
