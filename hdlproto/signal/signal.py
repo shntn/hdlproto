@@ -181,6 +181,48 @@ class _SignalContext:
 
 
 class Wire:
+    """
+    A multi-bit signal that constitutes a combinational circuit.
+
+    A signal equivalent to HDL's `wire`, which is only allowed to be assigned within an `@always_comb` block.
+    It is used by instantiating it within the `__init__` of a `Module` / `TestBench`.
+
+    Parameters
+    ----------
+    sign : bool, optional
+        `True` if handling a signed signal.
+        Default: `False` (unsigned)
+    width : int, optional
+        Bit width. Default: 1.
+        `width >= 2` is required if `sign=True`.
+    init : int, optional
+        Initial value. Default: 0.
+
+    Raises
+    ------
+    ValueError
+        If `sign=True` and `width <= 1`.
+
+    Examples
+    --------
+    >>> class MyModule(Module):
+    ...     def __init__(self):
+    ...         self.a = Wire(init=1)
+    ...         self.b = Wire(init=2)
+    ...         self.y = Wire(width=4)
+    ...         super().__init__()
+    ...
+    ...     @always_comb
+    ...     def logic(self):
+    ...         # Full addition
+    ...         self.y.w = self.a.w + self.b.w
+    ...         # Read/write bit slice
+    ...         self.y[1:0] = self.a[1:0] | self.b[1:0]
+
+    See Also
+    --------
+    Input, Output, Module, always_comb
+    """
     __slots__ = ("_signal", "_context")
 
     def __init__(self, sign=False, width=1, init=0):
@@ -189,6 +231,25 @@ class Wire:
 
     @property
     def w(self):
+        """Current value (read/write).
+
+        Reading is done by property access `value = self.foo.w`.
+        Writing is done with a setter like `self.foo.w = value`.
+
+        Returns
+        -------
+        int
+            Current value (read).
+
+        Raises
+        ------
+        SignalInvalidAccess
+            If writing to the `w` property outside of an `@always_comb` context.
+        SignalWriteConflict
+            If writing a value from multiple `@always_comb` blocks.
+        SignalUnstableError
+            If the change in the `Wire` signal does not converge.
+        """
         return self._signal._get()
 
     @w.setter
@@ -197,6 +258,37 @@ class Wire:
         self._signal._fire_write_event(_EventSource.WIRE, self, value_changed)
 
     def __getitem__(self, key):
+        """Reads a specific bit or slice.
+
+        Reading a specific bit is done like `value = self.foo[2]`.
+        Reading a slice is done like `value = self.foo[7:4]`.
+
+        Parameters
+        ----------
+        key : int or slice
+            The bit position (int) or slice range (slice) to read.
+
+        Returns
+        -------
+        int
+            The value of the specified bit or slice.
+
+        Raises
+        ------
+        TypeError
+            If `key` is not an int or slice.
+
+        Examples
+        --------
+        >>> @always_comb
+        >>> def logic(self):
+        ...     lower = self.foo[1:0]    # Read lower 2 bits
+        ...     bit3 = self.foo[3]       # Read a single bit
+
+        Notes
+        -----
+        * When specifying a slice value, both `[msb:lsb]` and `[lsb:msb]` are supported.
+        """
         if isinstance(key, slice):
             start, stop = key.start, key.stop
             return self._signal._get_bit(start, stop)
@@ -206,6 +298,43 @@ class Wire:
             raise TypeError("Invalid argument type.")
 
     def __setitem__(self, key, value):
+        """Writes a value to a specific bit or slice of the signal.
+
+        Can only be used inside an `@always_comb` block.
+        Writing to a specific bit is done like `self.foo[2] = value`.
+        Writing to a slice is done like `self.foo[7:4] = value`.
+
+        Parameters
+        ----------
+        key : int or slice
+            The bit position (int) or slice range (slice) to write to.
+        value : int
+            The value to write.
+
+        Raises
+        ------
+        TypeError
+            If `key` is not an int or slice.
+        SignalInvalidAccess
+            If writing outside of an `@always_comb` context.
+        SignalWriteConflict
+            If writing a value from multiple `@always_comb` blocks.
+        SignalUnstableError
+            If the change in the `Wire` signal does not converge.
+
+        Examples
+        --------
+        >>>     @always_comb
+        >>>     def logic(self):
+        ...         # Read/write bit slice
+        ...         self.foo[1:0] = value
+        ...         self.foo[2:3] = 3
+        ...         self.foo[4] = 1
+
+        Notes
+        -----
+        * When specifying a slice value, both `[msb:lsb]` and `[lsb:msb]` are supported.
+        """
         if isinstance(key, slice):
             start, stop = key.start, key.stop
             value_changed = self._signal._set_bit(start, stop, value)
@@ -232,6 +361,54 @@ class Wire:
 
 
 class Reg:
+    """
+    A multi-bit signal that constitutes a sequential circuit.
+
+    A signal equivalent to HDL's `Reg`, which is only allowed to be assigned within an `@always_ff` block.
+    It is used by instantiating it within the `__init__` of a `Module` / `TestBench`.
+
+    Parameters
+    ----------
+    sign : bool, optional
+        `True` if handling a signed signal.
+        Default: `False` (unsigned)
+    width : int, optional
+        Bit width. Default: 1.
+        `width >= 2` is required if `sign=True`.
+    init : int, optional
+        Initial value. Default: 0.
+
+    Raises
+    ------
+    ValueError
+        If `sign=True` and `width <= 1`.
+
+    Examples
+    --------
+    >>> class MyModule(Module):
+    ...     def __init__(self, clk):
+    ...         self.clk = Input(clk)
+    ...         self.a = Reg(init=1)
+    ...         self.b = Reg(init=2)
+    ...         self.y = Reg(width=4)
+    ...         super().__init__()
+    ...
+    ...     @always_ff((Edge.POS, 'clk'))
+    ...     def logic(self):
+    ...         # Full addition
+    ...         self.y.r = self.a.r + self.b.r
+    ...         # Read/write bit slice
+    ...         self.y[1:0] = self.a[1:0] | self.b[1:0]
+
+    Notes
+    -----
+    * Only non-blocking assignment is supported for writing.
+    * The written value is reflected in the current value at the next clock cycle.
+
+    See Also
+    --------
+    Module, always_ff
+    """
     __slots__ = ("_signal", "_context")
 
     def __init__(self, sign=False, width=1, init=0):
@@ -240,6 +417,25 @@ class Reg:
 
     @property
     def r(self):
+        """Reads the current value of the register and writes the next cycle value (read/write).
+
+        Similar to Verilog's `reg`, reading returns the current value.
+        Writing is a non-blocking assignment and schedules an update for the next clock cycle.
+
+        Returns
+        -------
+        int
+            Current value (read).
+
+        Raises
+        ------
+        SignalInvalidAccess
+            If writing to the `r` property outside of an `@always_ff` context.
+        SignalWriteConflict
+            If writing a value from multiple `@always_ff` blocks.
+        SignalUnstableError
+            If the change in the `Wire` signal does not converge.
+        """
         return self._signal._get()
 
     @r.setter
@@ -248,6 +444,37 @@ class Reg:
         self._signal._fire_write_event(_EventSource.REG, self, value_changed)
 
     def __getitem__(self, key):
+        """Reads a specific bit or slice.
+
+        Reading a specific bit is done like `value = self.foo[2]`.
+        Reading a slice is done like `value = self.foo[7:4]`.
+
+        Parameters
+        ----------
+        key : int or slice
+            The bit position (int) or slice range (slice) to read.
+
+        Returns
+        -------
+        int
+            The value of the specified bit or slice.
+
+        Raises
+        ------
+        TypeError
+            If `key` is not an int or slice.
+
+        Examples
+        --------
+        >>>     @always_ff((Edge.POS, 'clk'))
+        >>>     def logic(self):
+        ...         lower = self.foo[1:0]    # Read lower 2 bits
+        ...         bit3 = self.foo[3]       # Read a single bit
+
+        Notes
+        -----
+        * When specifying a slice value, both `[msb:lsb]` and `[lsb:msb]` are supported.
+        """
         if isinstance(key, slice):
             start, stop = key.start, key.stop
             return self._signal._get_bit(start, stop)
@@ -257,6 +484,43 @@ class Reg:
             raise TypeError("Invalid argument type.")
 
     def __setitem__(self, key, value):
+        """Writes the next cycle value to a specific bit or slice of the signal.
+
+        Can only be used inside an `@always_ff` block.
+        Writing to a specific bit is done like `self.foo[2] = value`.
+        Writing to a slice is done like `self.foo[7:4] = value`.
+
+        Parameters
+        ----------
+        key : int or slice
+            The bit position (int) or slice range (slice) to write to.
+        value : int
+            The value to write.
+
+        Raises
+        ------
+        TypeError
+            If `key` is not an int or slice.
+        SignalInvalidAccess
+            If writing outside of an `@always_ff` context.
+        SignalWriteConflict
+            If writing a value from multiple `@always_ff` blocks.
+        SignalUnstableError
+            If the change in the `Wire` signal does not converge.
+
+        Examples
+        --------
+        >>>     @always_ff((Edge.POS, 'clk'))
+        >>>     def logic(self):
+        ...         # Read/write bit slice
+        ...         self.foo[1:0] = value
+        ...         self.foo[2:3] = 3
+        ...         self.foo[4] = 1
+
+        Notes
+        -----
+        * When specifying a slice value, both `[msb:lsb]` and `[lsb:msb]` are supported.
+        """
         if isinstance(key, slice):
             start, stop = key.start, key.stop
             value_changed = self._signal._set_bit(start, stop, value)
@@ -277,6 +541,36 @@ class Reg:
 
 
 class Input:
+    """
+    A multi-bit signal that constitutes a combinational circuit input from outside a module.
+
+    A signal equivalent to HDL's `wire` that is read-only.
+    It is used by instantiating it within the `__init__` of a `Module` / `TestBench`.
+
+    Parameters
+    ----------
+    wire : Wire
+        The `Wire` to be input.
+
+    Examples
+    --------
+    >>> class MyModule(Module):
+    ...     def __init__(self, en):
+    ...         self.en = Input(en)
+    ...         self.cnt = Reg()
+    ...         self.cnt_next = Wire()
+    ...         super().__init__()
+    ...
+    ...     @always_comb
+    ...     def logic(self):
+    ...         self.cnt_next.w = self.cnt.r
+    ...         if self.en.w:
+    ...             self.cnt_next.w = self.cnt.r + 1
+
+    See Also
+    --------
+    Wire, Output, Module, always_comb
+    """
     __slots__ = ("_signal", "_context")
 
     def __init__(self, wire: Wire):
@@ -285,6 +579,20 @@ class Input:
 
     @property
     def w(self):
+        """Current value (read).
+
+        Reading is done by property access `value = self.foo.w`.
+
+        Returns
+        -------
+        int
+            Current value (read).
+
+        Raises
+        ------
+        AttributeError
+            If writing to the signal of `Input`.
+        """
         return self._signal._get()
 
     @w.setter
@@ -292,6 +600,37 @@ class Input:
         raise AttributeError("property 'w' of 'Input' object has no setter")
 
     def __getitem__(self, key):
+        """Reads a specific bit or slice.
+
+        Reading a specific bit is done like `value = self.foo[2]`.
+        Reading a slice is done like `value = self.foo[7:4]`.
+
+        Parameters
+        ----------
+        key : int or slice
+            The bit position (int) or slice range (slice) to read.
+
+        Returns
+        -------
+        int
+            The value of the specified bit or slice.
+
+        Raises
+        ------
+        TypeError
+            If `key` is not an int or slice.
+
+        Examples
+        --------
+        >>> @always_comb
+        >>> def logic(self):
+        ...     lower = self.foo[1:0]    # Read lower 2 bits
+        ...     bit3 = self.foo[3]       # Read a single bit
+
+        Notes
+        -----
+        * When specifying a slice value, both `[msb:lsb]` and `[lsb:msb]` are supported.
+        """
         if isinstance(key, slice):
             start, stop = key.start, key.stop
             return self._signal._get_bit(start, stop)
@@ -317,6 +656,33 @@ class Input:
 
 
 class Output:
+    """
+    A multi-bit signal that constitutes a combinational circuit output to outside a module.
+
+    A signal equivalent to HDL's `wire`, which is only allowed to be assigned within an `@always_comb` block.
+    It is used by instantiating it within the `__init__` of a `Module` / `TestBench`.
+
+    Parameters
+    ----------
+    wire : Wire
+        The `Wire` to be output.
+
+    Examples
+    --------
+    >>> class MyModule(Module):
+    ...     def __init__(self, out):
+    ...         self.cnt = Reg(init=4)
+    ...         self.out = Output(out)
+    ...         super().__init__()
+    ...
+    ...     @always_comb
+    ...     def logic(self):
+    ...         self.out.w = self.cnt.r
+
+    See Also
+    --------
+    Wire, Input, Module, always_comb
+    """
     __slots__ = ("_signal", "_context")
 
     def __init__(self, wire: Wire):
@@ -325,6 +691,25 @@ class Output:
 
     @property
     def w(self):
+        """Current value (read/write).
+
+        Reading is done by property access `value = self.foo.w`.
+        Writing is done with a setter like `self.foo.w = value`.
+
+        Returns
+        -------
+        int
+            Current value (read).
+
+        Raises
+        ------
+        SignalInvalidAccess
+            If writing to the `w` property outside of an `@always_comb` context.
+        SignalWriteConflict
+            If writing a value from multiple `@always_comb` blocks.
+        SignalUnstableError
+            If the change in the `Wire` signal does not converge.
+        """
         return self._signal._get()
 
     @w.setter
@@ -333,6 +718,37 @@ class Output:
         self._signal._fire_write_event(_EventSource.OUTPUT, self, value_changed)
 
     def __getitem__(self, key):
+        """Reads a specific bit or slice.
+
+        Reading a specific bit is done like `value = self.foo[2]`.
+        Reading a slice is done like `value = self.foo[7:4]`.
+
+        Parameters
+        ----------
+        key : int or slice
+            The bit position (int) or slice range (slice) to read.
+
+        Returns
+        -------
+        int
+            The value of the specified bit or slice.
+
+        Raises
+        ------
+        TypeError
+            If `key` is not an int or slice.
+
+        Examples
+        --------
+        >>> @always_comb
+        >>> def logic(self):
+        ...     lower = self.foo[1:0]    # Read lower 2 bits
+        ...     bit3 = self.foo[3]       # Read a single bit
+
+        Notes
+        -----
+        * When specifying a slice value, both `[msb:lsb]` and `[lsb:msb]` are supported.
+        """
         if isinstance(key, slice):
             start, stop = key.start, key.stop
             return self._signal._get_bit(start, stop)
@@ -342,6 +758,43 @@ class Output:
             raise TypeError("Invalid argument type.")
 
     def __setitem__(self, key, value):
+        """Writes a value to a specific bit or slice of the signal.
+
+        Can only be used inside an `@always_comb` block.
+        Writing to a specific bit is done like `self.foo[2] = value`.
+        Writing to a slice is done like `self.foo[7:4] = value`.
+
+        Parameters
+        ----------
+        key : int or slice
+            The bit position (int) or slice range (slice) to write to.
+        value : int
+            The value to write.
+
+        Raises
+        ------
+        TypeError
+            If `key` is not an int or slice.
+        SignalInvalidAccess
+            If writing outside of an `@always_comb` context.
+        SignalWriteConflict
+            If writing a value from multiple `@always_comb` blocks.
+        SignalUnstableError
+            If the change in the `Wire` signal does not converge.
+
+        Examples
+        --------
+        >>>     @always_comb
+        >>>     def logic(self):
+        ...         # Read/write bit slice
+        ...         self.foo[1:0] = value
+        ...         self.foo[2:3] = 3
+        ...         self.foo[4] = 1
+
+        Notes
+        -----
+        * When specifying a slice value, both `[msb:lsb]` and `[lsb:msb]` are supported.
+        """
         if isinstance(key, slice):
             start, stop = key.start, key.stop
             value_changed = self._signal._set_bit(start, stop, value)

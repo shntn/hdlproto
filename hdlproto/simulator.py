@@ -21,6 +21,43 @@ if TYPE_CHECKING:
     from .event.event_mediator import _EventMediator
 
 class Simulator:
+    """The main class for executing HDLproto simulations.
+
+    This class takes a testbench and simulation settings to manage
+    the event-driven simulation loop. Users control the simulation
+    through an instance of this class.
+
+    Parameters
+    ----------
+    config : SimConfig
+        A `SimConfig` instance that holds the simulation settings,
+        such as the clock signal and the maximum number of loops for
+        combinational circuits.
+    testbench : TestBench
+        The `TestBench` instance that serves as the top level of the
+        simulation.
+
+    Examples
+    --------
+    >>> # Prepare TestBench and SimConfig
+    >>> tb = MyTestBench()
+    >>> config = SimConfig(clock=tb.clk)
+    ...
+    >>> # Instantiate the simulator
+    >>> sim = Simulator(config, tb)
+    ...
+    >>> # Explicitly calling start and end of simulation
+    >>> sim.start()
+    >>> sim.testcase("run_test")
+    >>> sim.end()
+    ...
+    >>> # Simple usage by only calling the testcase method
+    >>> sim.testcase("run_test")
+
+    See Also
+    --------
+    TestBench, SimConfig, testcase
+    """
     def __init__(self, config: SimConfig, testbench: TestBench):
         self._config = config
         self._tb = testbench
@@ -49,12 +86,30 @@ class Simulator:
         self._testcase_manager._simulator = self
 
     def start(self):
+        """Starts the simulation and calls the start hook.
+
+        Calls the `log_sim_start` method of the `TestBench`.
+        By calling this before executing any test cases, initialization
+        processes can be performed.
+        """
         self._tb.log_sim_start(self._config)
 
     def end(self):
+        """Ends the simulation and calls the end hook.
+
+        Calls the `log_sim_end` method of the `TestBench`.
+        By calling this after all test cases have been executed, final
+        processing can be performed.
+        """
         self._tb.log_sim_end()
 
     def clock(self):
+        """Advances the simulation by one clock cycle.
+
+        This method executes a full simulation cycle, including both
+        the rising and falling edges of the clock.
+        Internally, it calls `half_clock` twice.
+        """
         self._tb.log_clock_start(self._clock_cycle)
         self._exector._log_clock_start(self._clock_cycle)
         self._config.clock.w = 0 if self._config.clock.w else 1
@@ -64,13 +119,19 @@ class Simulator:
         self._exector._log_clock_end(self._clock_cycle)
         self._clock_cycle += 1
 
-    def half_clock(self, clock: int):
+    def half_clock(self):
+        """Advances the simulation by half a clock cycle.
+
+        This is mainly used for detailed timing verification and testing
+        purposes. It updates the state of the clock signal and executes
+        the propagation and stabilization of signal values.
+        """
         self._tb.log_clock_start(self._clock_cycle)
         self._exector._log_clock_start(self._clock_cycle)
         self._config.clock.w = 0 if self._config.clock.w else 1
         self._half_clock()
         self._exector._log_clock_end(self._clock_cycle)
-        self._clock_cycle += 1 if clock else 0
+        self._clock_cycle += 1 if self._config.clock.w else 0
 
     def _half_clock(self):
         _is_write = None
@@ -86,6 +147,17 @@ class Simulator:
             self._exector._store_stabled_value_for_write()
 
     def testcase(self, name: str=None):
+        """Executes the specified test case.
+
+        Executes a method defined by the `@testcase` decorator within
+        the `TestBench`.
+
+        Parameters
+        ----------
+        name : str, optional
+            The name of the test case method to execute.
+            If omitted, all defined test cases will be executed in order.
+        """
         self._testcase_manager._run_testcase(name)
 
 class _SimulationExector:

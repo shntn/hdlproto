@@ -15,8 +15,12 @@ class _SignalType(Enum):
     EXTERNAL = auto()
 
 class Edge(Enum):
-    POS = auto()
-    NEG = auto()
+    """Specifies a rising or falling edge.
+
+    Used as a trigger for the `@always_ff` decorator.
+    """
+    POS = auto()    #: Rising edge
+    NEG = auto()    #: Falling edge
 
 class _ModuleType(Enum):
     MODULE = auto()

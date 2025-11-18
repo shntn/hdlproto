@@ -51,12 +51,107 @@ def _create_always_decorator(_type_str: str, _source_type: _EventSource):
         return _wrapper
     return _decorator
 
-always_comb = _create_always_decorator('always_comb', _EventSource.ALWAYS_COMB)
+def always_comb(func):
+    """always_comb decorator.
+
+    Creates a decorator to define a function for a combinational circuit.
+
+    Returns
+    -------
+    callable
+        Returns a decorator to be applied to the passed function.
+
+    Raises
+    ------
+    TypeError
+        If the arguments are empty or invalid.
+    SignalInvalidAccess
+        If writing to a `Reg` in `@always_comb`.
+    SignalWriteConflict
+        If writing to the same `Wire` from multiple `@always_comb` blocks.
+
+    Examples
+    --------
+    >>> class MyModule(Module):
+    ...     def __init__(self):
+    ...         self.a = Wire(init=1)
+    ...         self.b = Wire(init=2)
+    ...         self.y = Wire(width=4)
+    ...         super().__init__()
+    ...
+    ...     @always_comb
+    ...     def logic(self):
+    ...         # Full addition
+    ...         self.y.w = self.a.w + self.b.w
+    ...         # Read/write bit slice
+    ...         self.y[1:0] = self.a[1:0] | self.b[1:0]
+
+    See Also
+    --------
+    Wire, Input, Output, Module
+    """
+    return _create_always_decorator('always_comb', _EventSource.ALWAYS_COMB)(func)
 
 
 def always_ff(*trigger_specs):
-    """always_ff デコレータ。必ず (Edge, signal) タプルを渡す。"""
+    """always_ff decorator.
 
+    Creates a decorator to define a function triggered by a clock edge.
+    A function decorated with `always_ff` becomes a sequential circuit.
+    You must provide one or two trigger specifications.
+
+    Parameters
+    ----------
+    *trigger_specs : tuple of (Edge, str)
+        Trigger specification for a clock edge or reset edge.
+        The specification must be one or two tuples.
+        Each tuple has the format `(Edge, signal_name)`.
+
+        - Edge : Either `Edge.POS` (rising) or `Edge.NEG` (falling).
+        - signal_name : A string (`str`) indicating the attribute name corresponding to the signal in the module.
+
+    Returns
+    -------
+    callable
+        Returns a decorator to be applied to the passed function.
+
+    Raises
+    ------
+    TypeError
+        If the arguments are empty or invalid.
+    SignalInvalidAccess
+        If writing to a `Wire` in `@always_ff`.
+    SignalWriteConflict
+        If writing to the same `Reg` from multiple `@always_ff` blocks.
+
+    Examples
+    --------
+    >>> class MyModule1(Module):
+    ...     def __init__(self, clk):
+    ...         self.clk = Input(clk)
+    ...         super().__init__()
+    ...
+    ...     @always_ff((Edge.POS, 'clk'))
+    ...     def logic(self):
+    ...
+
+    >>> class MyModule2(Module):
+    ...     def __init__(self, clk, reset):
+    ...         self.clk = Input(clk)
+    ...         self.reset = Input(reset)
+    ...         super().__init__()
+    ...
+    ...     @always_ff((Edge.POS, 'clk'), (Edge.NEG, 'reset'))
+    ...     def logic(self):
+
+    Notes
+    -----
+    * Only non-blocking assignments are possible. Blocking assignments are not supported.
+
+    See Also
+    --------
+    Reg, Module, Edge
+    """
     if not trigger_specs:
         raise TypeError("@always_ff requires at least one (Edge, signal) trigger tuple.")
 
@@ -83,6 +178,45 @@ def always_ff(*trigger_specs):
 
 
 class Module:
+    """Base class for hardware modules, equivalent to Verilog's Module.
+
+    Inherit from this class to define your own hardware modules.
+    Within the module's `__init__` method, define signals such as `Wire` and `Reg`,
+    and other `Module` instances (sub-modules) as attributes.
+
+    After defining all signals and sub-modules, you must call `super().__init__()` at the end.
+    This automatically builds the module hierarchy.
+
+    Examples
+    --------
+    >>> class SubProcessor(Module):
+    ...     def __init__(self, clk, data_in, data_out):
+    ...         self.clk = Input(clk)
+    ...         self.data_in = Input(data_in)
+    ...         self.data_out = Output(data_out)
+    ...         self.internal_reg = Reg(width=8)
+    ...         super().__init__()
+    ...
+    ...     @always_ff((Edge.POS, 'clk'))
+    ...     def seq_logic(self):
+    ...         self.internal_reg.r = self.data_in.w
+    ...
+    ...     @always_comb
+    ...     def comb_logic(self):
+    ...         self.data_out.w = self.internal_reg.w
+    ...
+    >>> class TopModule(Module):
+    ...     def __init__(self):
+    ...         self.clk = Wire()
+    ...         self.top_in = Wire(width=8)
+    ...         self.top_out = Wire(width=8)
+    ...         self.processor = SubProcessor(self.clk, self.top_in, self.top_out)
+    ...         super().__init__()
+
+    See Also
+    --------
+    TestBench, testcase, always_ff, always_comb, Wire, Reg, Input, Output
+    """
     def __init__(self):
         self._id = id(self)
         self._parent = None
@@ -117,7 +251,25 @@ class Module:
             yield name
 
     def log_clock_start(self, cycle):
+        """Hook method called at the start of each clock cycle.
+
+        Can be overridden for debugging and tracing purposes.
+
+        Parameters
+        ----------
+        cycle : int
+            The number of clock cycles elapsed since the start of the simulation.
+        """
         pass
 
     def log_clock_end(self, cycle):
+        """Hook method called at the end of each clock cycle.
+
+        Can be overridden for debugging and tracing purposes.
+
+        Parameters
+        ----------
+        cycle : int
+            The number of clock cycles elapsed since the start of the simulation.
+        """
         pass

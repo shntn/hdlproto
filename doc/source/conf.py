@@ -39,4 +39,5 @@ autodoc_default_options = {
     'private-members': False,
     'member-order': 'bysource',
     'undoc-members': True,
+    'special-members': '__getitem__, __setitem__',
 }

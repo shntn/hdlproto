@@ -166,9 +166,9 @@ class TbDualEdge(HDLTestBench):
         simulator.clock()
         self.reset.w = 0
         for _ in range(3):
-            simulator.half_clock(1)
+            simulator.half_clock()
             self.history.append(('pos', self.pos_wire.w))
-            simulator.half_clock(0)
+            simulator.half_clock()
             self.history.append(('neg', self.neg_wire.w))
 
 
