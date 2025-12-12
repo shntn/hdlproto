@@ -1,27 +1,20 @@
 from enum import Enum, auto
 
 
-class _SimulationState(Enum):
-    IDLE = auto()
-    ALWAYS_FF = auto()
-    ALWAYS_COMB = auto()
-
-
-class _SignalType(Enum):
-    WIRE = auto()
-    REG = auto()
-    INPUT = auto()
-    OUTPUT = auto()
-    EXTERNAL = auto()
-
 class Edge(Enum):
-    """Specifies a rising or falling edge.
+    """Specifies a clock edge type for sequential logic triggers.
 
-    Used as a trigger for the `@always_ff` decorator.
+    This enumeration is used in `@always_ff` decorators to define whether a
+    process should trigger on a rising (`POS`) or falling (`NEG`) edge of a
+    clock signal.
+
+    Attributes
+    ----------
+    POS : Enum
+        Represents a positive (rising) edge transition (e.g., 0 to 1).
+    NEG : Enum
+        Represents a negative (falling) edge transition (e.g., 1 to 0).
     """
+
     POS = auto()    #: Rising edge
     NEG = auto()    #: Falling edge
-
-class _ModuleType(Enum):
-    MODULE = auto()
-    TESTBENCH = auto()

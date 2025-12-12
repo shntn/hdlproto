@@ -1,218 +1,172 @@
-from typing import TYPE_CHECKING
+from typing import List
 
-from .testbench import TestBench
+from .region import _SignalList, _FunctionList, _ActiveRegion, _NBARegion
+from .signal import Wire
+from .module import TestBench
+from .simulation_context import _SimulationContext
+from .environment_builder import _EnvironmentBuilder
+from .vcdwriter import VCDWriter, _IVCDSignal
 from .error import SignalUnstableError
-from .simconfig import SimConfig
-from .state import _SimulationState
-from .factories import (_module_manager_factory,
-                        _function_manager_factory,
-                        _signal_manager_factory,
-                        _event_manager_factory,
-                        _event_mediator_factory,
-                        _testcase_manager_factory,
-                        _simulation_exector_factory)
 
-if TYPE_CHECKING:
-    from .simconfig import SimConfig
-    from .module.module_manager import _ModuleManager
-    from .signal.signal_manager import _SignalManager
-    from .function_manager import _FunctionManager
-    from .event.event_manager import _EventManager
-    from .event.event_mediator import _EventMediator
 
-class Simulator:
-    """The main class for executing HDLproto simulations.
+class VCDSignalAdapter(_IVCDSignal):
+    """Convert HDLproto signals to the minimal interface required by VCDWriter.
 
-    This class takes a testbench and simulation settings to manage
-    the event-driven simulation loop. Users control the simulation
-    through an instance of this class.
+    This adapter class wraps a standard hdlproto signal (`Wire`, `Reg`, etc.)
+    and exposes its properties through the `_IVCDSignal` interface, which is
+    what the `VCDWriter` expects.
 
     Parameters
     ----------
-    config : SimConfig
-        A `SimConfig` instance that holds the simulation settings,
-        such as the clock signal and the maximum number of loops for
-        combinational circuits.
-    testbench : TestBench
-        The `TestBench` instance that serves as the top level of the
-        simulation.
-
-    Examples
-    --------
-    >>> # Prepare TestBench and SimConfig
-    >>> tb = MyTestBench()
-    >>> config = SimConfig(clock=tb.clk)
-    ...
-    >>> # Instantiate the simulator
-    >>> sim = Simulator(config, tb)
-    ...
-    >>> # Explicitly calling start and end of simulation
-    >>> sim.start()
-    >>> sim.testcase("run_test")
-    >>> sim.end()
-    ...
-    >>> # Simple usage by only calling the testcase method
-    >>> sim.testcase("run_test")
-
-    See Also
-    --------
-    TestBench, SimConfig, testcase
+    signal : _Signal
+        The hdlproto signal to adapt.
     """
-    def __init__(self, config: SimConfig, testbench: TestBench):
-        self._config = config
-        self._tb = testbench
-        self._clock_cycle = 0
-        self._exector = None
-        self._testcase_manager = None
-        self._build_environment(config, testbench)
 
-    def _build_environment(self, config: SimConfig, testbench: TestBench):
-        from .environment_builder import _EnvironmentBuilder
+    def __init__(self, signal):
+        self._sig = signal
 
-        env_builder = _EnvironmentBuilder(
-            _config=config,
-            _testbench=testbench,
-            _module_manager_factory=_module_manager_factory,
-            _function_manager_factory=_function_manager_factory,
-            _signal_manager_factory=_signal_manager_factory,
-            _event_manager_factory=_event_manager_factory,
-            _event_mediator_factory=_event_mediator_factory,
-            _testcase_manager_factory=_testcase_manager_factory,
-            _simulation_exector_factory=_simulation_exector_factory,
-        )
-        env = env_builder._start_builder()
-        self._testcase_manager = env["testcase_manager"]
-        self._exector = env["simulation_exector"]
-        self._testcase_manager._simulator = self
+    @property
+    def name(self) -> str:
+        """str: The name of the adapted signal."""
+        return self._sig._name
 
-    def start(self):
-        """Starts the simulation and calls the start hook.
+    @property
+    def width(self) -> int:
+        """int: The bit width of the adapted signal."""
+        return self._sig._width
 
-        Calls the `log_sim_start` method of the `TestBench`.
-        By calling this before executing any test cases, initialization
-        processes can be performed.
-        """
-        self._tb.log_sim_start(self._config)
+    @property
+    def value(self) -> int:
+        """int: The current value of the adapted signal."""
+        return self._sig._get_value()
 
-    def end(self):
-        """Ends the simulation and calls the end hook.
+    @property
+    def scope(self) -> List[str]:
+        """list of str: The hierarchical scope of the signal."""
+        mod = getattr(self._sig, "_module", None)
+        if mod is None:
+            return []
 
-        Calls the `log_sim_end` method of the `TestBench`.
-        By calling this after all test cases have been executed, final
-        processing can be performed.
-        """
-        self._tb.log_sim_end()
+        if hasattr(mod, "_get_full_scope"):
+            return mod._get_full_scope()
 
-    def clock(self):
-        """Advances the simulation by one clock cycle.
+        return [str(mod)]
 
-        This method executes a full simulation cycle, including both
-        the rising and falling edges of the clock.
-        Internally, it calls `half_clock` twice.
-        """
-        self._tb.log_clock_start(self._clock_cycle)
-        self._exector._log_clock_start(self._clock_cycle)
-        self._config.clock.w = 0 if self._config.clock.w else 1
-        self._half_clock()
-        self._config.clock.w = 0 if self._config.clock.w else 1
-        self._half_clock()
-        self._exector._log_clock_end(self._clock_cycle)
-        self._clock_cycle += 1
 
-    def half_clock(self):
-        """Advances the simulation by half a clock cycle.
+class Simulator:
+    """Run HDLproto simulations by scheduling regions and optional VCD dumping.
 
-        This is mainly used for detailed timing verification and testing
-        purposes. It updates the state of the clock signal and executes
-        the propagation and stabilization of signal values.
-        """
-        self._tb.log_clock_start(self._clock_cycle)
-        self._exector._log_clock_start(self._clock_cycle)
-        self._config.clock.w = 0 if self._config.clock.w else 1
-        self._half_clock()
-        self._exector._log_clock_end(self._clock_cycle)
-        self._clock_cycle += 1 if self._config.clock.w else 0
+    The Simulator orchestrates the entire simulation process. It builds the
+    design hierarchy, manages the simulation time, executes the logic in
+    the correct order according to HDL semantics (active region, NBA region, etc.),
+    and interfaces with the VCD writer to dump waveforms.
 
-    def _half_clock(self):
-        _is_write = None
-        self._exector._store_stabled_value_for_trigger()
-        self._exector._store_stabled_value_for_write()
-        self._exector._evaluate_external()
-        while _is_write is not False:
-            self._exector._extract_triggerd_always_ff()
-            self._exector._evaluate_always_ff()
-            self._exector._evaluate_always_comb()
-            self._exector._update_reg_to_latest_value()
-            _is_write = self._exector._is_write()
-            self._exector._store_stabled_value_for_write()
+    Parameters
+    ----------
+    testbench : TestBench
+        The top-level `TestBench` module instance of the design to be simulated.
+    clock : Wire
+        The primary clock signal for the simulation. The `clock()` and
+        `half_clock()` methods will drive this wire.
+    max_comb_loops : int, optional
+        The maximum number of delta cycles allowed within a single time step
+        before assuming that combinational logic is unstable. Defaults to 30.
+    vcd : VCDWriter, optional
+        An instance of `VCDWriter` to use for dumping waveform data. If provided,
+        all signals in the design will be registered with it. Defaults to None.
 
-    def testcase(self, name: str=None):
-        """Executes the specified test case.
+    Raises
+    ------
+    SignalUnstableError
+        If the number of delta cycles in a time step exceeds `max_comb_loops`.
+    """
 
-        Executes a method defined by the `@testcase` decorator within
-        the `TestBench`.
-
-        Parameters
-        ----------
-        name : str, optional
-            The name of the test case method to execute.
-            If omitted, all defined test cases will be executed in order.
-        """
-        self._testcase_manager._run_testcase(name)
-
-class _SimulationExector:
     def __init__(
             self,
-            _sim_config: "SimConfig | None" = None,
-            _module_manager: "_ModuleManager | None" = None,
-            _signal_manager: "_SignalManager | None" = None,
-            _function_manager: "_FunctionManager | None" = None,
-            _event_mediator: "_EventMediator | None" = None,
-            _event_manager: "_EventManager | None" = None
+            testbench: TestBench,
+            clock: Wire,
+            max_comb_loops: int = 30,
+            vcd: VCDWriter = None
     ):
-        self._state = _SimulationState.IDLE
-        self._config = _sim_config
-        self._module_manager = _module_manager
-        self._signal_manager = _signal_manager
-        self._function_manager = _function_manager
-        self._event_mediator = _event_mediator
-        self._event_manager = _event_manager
+        self._testbench = testbench
+        self._clock = clock
+        self._max_comb_loops = max_comb_loops
+        self._sim_context = _SimulationContext()
+        self._signal_list = _SignalList()
+        self._function_list = _FunctionList(self._sim_context)
+        self._active_region = _ActiveRegion(
+            self._sim_context,
+            self._signal_list,
+            self._function_list
+        )
+        self._nba_region = _NBARegion(self._sim_context, self._signal_list)
+        _EnvironmentBuilder()._build(
+            self._testbench,
+            self._sim_context,
+            self._signal_list,
+            self._function_list
+        )
+        self.vcd = vcd
+        if self.vcd:
+            self._register_signals_for_vcd()
 
-    def _store_stabled_value_for_trigger(self):
-        self._signal_manager._store_stabled_value_for_trigger()
+    def clock(self):
+        """Toggle the user-provided clock wire for a full cycle.
 
-    def _evaluate_external(self):
-        self._signal_manager._update_externals()
+        This is a convenience method that calls `half_clock()` twice to simulate
+        one full clock period (e.g., a low-to-high transition followed by a
+        high-to-low transition).
+        """
+        self.half_clock()
+        self.half_clock()
 
-    def _store_stabled_value_for_write(self):
-        self._signal_manager._store_stabled_value_for_write()
+    def half_clock(self):
+        """Advance simulation by one half clock cycle.
 
-    def _extract_triggerd_always_ff(self):
-        self._function_manager._extract_triggerd_always_ff()
+        This is the main entry point for advancing simulation time. It performs
+        the following steps, adhering to standard HDL simulation semantics:
+        1. Takes a `cycle` snapshot for edge detection in `@always_ff` blocks.
+        2. Toggles the main clock signal.
+        3. Enters the delta-cycle loop, which evaluates all active combinational
+           and sequential logic until the design stabilizes.
+        4. Dumps the new signal values to the VCD file if enabled.
 
-    def _evaluate_always_ff(self):
-        self._state = _SimulationState.ALWAYS_FF
-        self._function_manager._evaluate_always_ff()
-        self._state = _SimulationState.IDLE
+        Raises
+        ------
+        SignalUnstableError
+            If a combinational loop does not stabilize within the limit set by
+            `max_comb_loops`.
+        """
+        # === (1) Cycle snapshot ===
+        # Store previous clock-cycle values.
+        # Used only for always_ff edge detection.
+        self._signal_list._exec_all(lambda sig: sig._snapshot_cycle())
 
-    def _evaluate_always_comb(self):
-        for iteration in range(self._config.max_comb_loops):
-            self._state = _SimulationState.ALWAYS_COMB
-            self._function_manager._evaluate_always_comb()
-            is_unstable = self._signal_manager._update_wires()
-            self._state = _SimulationState.IDLE
-            if not is_unstable:
-                return iteration + 1
-        raise SignalUnstableError("Signal did not stabilize. Possible combinational feedback loop detected.")
+        # === (2) Drive master clock ===
+        # HDLproto model:
+        #   - clock is updated before evaluating always_ff
+        #   - this matches the “input commit → sequential eval” ordering
+        self._clock.w = 0 if self._clock.w else 1
 
-    def _update_reg_to_latest_value(self):
-        self._signal_manager._update_regs()
+        # === (3) Active Region → NBA Region → loop (delta-cycle)
+        loop_count = 0
+        while True:
+            self._signal_list._exec_all(lambda sig: sig._snapshot_delta())
+            self._active_region._execute()
+            self._nba_region._execute()
+            changed = self._signal_list._exec_all(lambda sig: sig._is_delta_changed())
+            loop_count += 1
+            if loop_count > self._max_comb_loops:
+                raise SignalUnstableError("always_comb did not converge before max_comb_loops")
+            if not changed:
+                break
+        self._sim_context._clear()
 
-    def _is_write(self):
-        return self._signal_manager._is_write()
+        if self.vcd:
+            self.vcd._dump()
 
-    def _log_clock_start(self, clock_cycle):
-        self._module_manager._log_clock_start(clock_cycle)
-
-    def _log_clock_end(self, clock_cycle):
-        self._module_manager._log_clock_end(clock_cycle)
+    def _register_signals_for_vcd(self):
+        """Register every signal with the VCD writer using the adapter."""
+        self._signal_list._exec_all(
+            lambda sig: self.vcd._register(VCDSignalAdapter(sig))
+        )

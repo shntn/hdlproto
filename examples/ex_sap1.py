@@ -34,11 +34,6 @@ class ProgramCounter(Module):
         if self.ep.w:
             self.pc_out[3:0] = self.pc.r
 
-    def log_clock_end(self, cycle):
-        if self.ep.w:
-            print(f"PC:   PC=0x{self.pc.r:01X}")
-        if self.n_clr.w and self.cp.w:
-            print(f"PC:   PC=0x{self.pc_next.w:01X}")
 
 class InputAndMemoryAddressRegister(Module):
     def __init__(self, clk, n_lm, ain, a):
@@ -71,10 +66,6 @@ class InputAndMemoryAddressRegister(Module):
         # アドレス出力
         self.a.w = self.a_reg.r
 
-    def log_clock_end(self, cycle):
-        if not self.n_lm.w:
-            print(f"MAR:   ADDRESS=0x{self.a_reg_next.w:01X}")
-
 
 class Ram(Module):
     def __init__(self, clk, a, n_ce, d):
@@ -106,11 +97,6 @@ class Ram(Module):
     def combinational_circuit(self):
         if not self.n_ce.w:
             self.d.w = self.memory[self.a[3:0]]
-
-    def log_clock_end(self, cycle):
-        if not self.n_ce.w:
-            print(f"Ram:   address={self.a.w:01X}, data=0x{self.d.w:02X}")
-
 
 
 class InstructionRegister(Module):
@@ -165,11 +151,6 @@ class InstructionRegister(Module):
             self.inst.w = self.inst_latch.r
             self.imm.w = (self.imm.w & 0xF0) | self.imm_latch.r
 
-    def log_clock_end(self, cycle):
-        if not self.n_li.w:
-            print(f"Instruction:   inst={self.inst_next.w:01X}, imm={self.imm_next.w:01X}")
-        if not self.n_ei.w:
-            print(f"Instruction:   out inst={self.inst.w:1X}, imm={self.imm[3:0]:1X}")
 
 class ControllerSequencer(Module):
     def __init__(self, clk, n_clr, inst, cp, ep, n_lm, n_ce, n_li, n_ei, n_la, ea, su, eu, n_lb, n_lo, n_halt):
@@ -250,13 +231,6 @@ class ControllerSequencer(Module):
                             or (self.t.r == 4 and self.inst_sub.w))
         self.n_lo.w = not (self.t.r == 3 and self.inst_out.w)
 
-"""
-    def log_clock_end(self, cycle):
-        print(f"ControllerSequencer:   t.r={self.t.r}. t.w={self.t_next.w}")
-        print(f"ControllerSequencer:   t={self.t_next.w}")
-        print(f"ControllerSequencer:   cp | ep | n_lm | n_ce | n_li | n_ei | n_la | ea | su | eu | n_lb | n_lo | n_halt")
-        print(f"ControllerSequencer:   {self.cp.w}  | {self.ep.w}  | {self.n_lm.w}    | {self.n_ce.w}    | {self.n_li.w}    | {self.n_ei.w}    | {self.n_la.w}    | {self.ea.w}  | {self.su.w}  | {self.eu.w}  | {self.n_lb.w}    | {self.n_lo.w}    | {self.n_halt.w}")
-"""
 
 
 class Accumulator(Module):
@@ -294,10 +268,6 @@ class Accumulator(Module):
         if self.ea.w:
             self.dout_to_bus.w = self.data.r
 
-    def log_clock_end(self, cycle):
-        if not self.n_la.w:
-            print(f"Accumulator:   acc=0x{self.data_next.w:02X}")
-
 
 class AdderSubtractor(Module):
     def __init__(self, clk, din1, din2, su, eu, data_out):
@@ -324,12 +294,6 @@ class AdderSubtractor(Module):
         # 出力選択
         if self.eu.w:
             self.data_out.w = result
-
-    def log_clock_end(self, cycle):
-        if self.su.w and self.eu.w:
-            print(f"AdderSubtractor:   0x{self.din1.w:02X} - 0x{self.din2.w:02X} = 0x{self.data_out.w:02X}")
-        if not self.su.w and self.eu.w:
-            print(f"AdderSubtractor:   0x{self.din1.w:02X} + 0x{self.din2.w:02X} = 0x{self.data_out.w:02X}")
 
 
 class BRegister(Module):
@@ -363,10 +327,6 @@ class BRegister(Module):
         # 出力選択
         self.dout.w = self.data.r
 
-    def log_clock_end(self, cycle):
-        if not self.n_lb.w:
-            print(f"BRegister:     b=0x{self.data_next.w:02X}")
-
 
 class OutputRegister(Module):
     def __init__(self, clk, din, n_lo, dout):
@@ -399,10 +359,6 @@ class OutputRegister(Module):
         # 出力選択
         self.dout.w = self.data.r
 
-    def log_clock_end(self, cycle):
-        if not self.n_lo.w:
-            print(f"OutputRegister:   0x{self.din.w:02X}")
-
 
 class BinaryDisplay(Module):
     def __init__(self, clk, din):
@@ -419,10 +375,6 @@ class BinaryDisplay(Module):
     @always_comb
     def combinational_circuit(self):
             self.data_next.w = self.din.w
-
-    def log_clock_end(self, cycle):
-        if self.data_next.w != self.data.r:
-            print(f"BinaryDisplay: 0x{self.data_next.w:02X}")
 
 
 class Sap1(Module):
@@ -508,20 +460,17 @@ class tbSAP1(TestBench):
         self.sap1 = Sap1(self.clk, self.clr)
         super().__init__()
 
-    @testcase
     def run(self, simulator):
 
         for i in range(6*6):
             self.clr.w = 0
             simulator.clock()
 
-    def log_clock_start(self, cycle):
-        print(f"\n--- Clock {(cycle // 6) + 1},  T {(cycle % 6) + 1} ---")
-
 
 if __name__ == "__main__":
     tb = tbSAP1()
-    config = SimConfig(clock=tb.clk)
-
-    sim = Simulator(config, tb)
-    sim.testcase("run")
+    vcd = VCDWriter()
+    sim = Simulator(testbench=tb, clock=tb.clk, vcd=vcd)
+    vcd.open("sap1.vcd")
+    tb.run(sim)
+    vcd.close()
