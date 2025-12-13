@@ -25,6 +25,12 @@ class _IVCDSignal(ABC):
 
     @property
     @abstractmethod
+    def is_reg(self) -> bool:
+        """bool: Whether the adapted signal is a register."""
+        ...
+
+    @property
+    @abstractmethod
     def value(self) -> int:
         """int: The current integer value of the signal."""
         ...
@@ -195,7 +201,7 @@ class VCDWriter:
                 self._enter_scope(p)
 
             # Write variable declaration
-            stype = "wire" if sig.width == 1 else "reg"
+            stype = "reg" if sig.is_reg else "wire"
             self.f.write(f"$var {stype} {sig.width} {vid} {sig.name} $end\n")
 
             prev_path = path

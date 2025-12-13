@@ -1,7 +1,7 @@
 from typing import List
 
 from .region import _SignalList, _FunctionList, _ActiveRegion, _NBARegion
-from .signal import Wire
+from .signal import Wire, Reg
 from .module import TestBench
 from .simulation_context import _SimulationContext
 from .environment_builder import _EnvironmentBuilder
@@ -33,7 +33,12 @@ class VCDSignalAdapter(_IVCDSignal):
     @property
     def width(self) -> int:
         """int: The bit width of the adapted signal."""
-        return self._sig._width
+        return self._sig._get_width()
+
+    @property
+    def is_reg(self) -> bool:
+        """bool: Whether the adapted signal is a register."""
+        return isinstance(self._sig, Reg)
 
     @property
     def value(self) -> int:
