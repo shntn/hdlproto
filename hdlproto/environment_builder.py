@@ -4,6 +4,7 @@ from .module import TestBench, Module, AlwaysFFWrapper
 from .simulation_context import _SimulationContext
 from .region import _SignalList, _FunctionList
 from .signal import Wire, Reg, Input, Output
+from .signal_array import _SignalArray
 
 
 class _EnvironmentBuilder:
@@ -103,7 +104,16 @@ class _EnvironmentBuilder:
 
         # 辞書のサイズが変わるのを避けるため、list化してからループする
         for name, signal in list(module.__dict__.items()):
-            if isinstance(signal, (Wire, Input, Output)):
+            if isinstance(signal, _SignalArray):
+                for i, item in enumerate(signal):
+                    item_name = f"{name}[{i}]"
+                    if isinstance(item, (Wire, Input, Output)):
+                        item._set_context(name=item_name, module=module, sim_context=sim_context)
+                        signal_list._append_wire(item)
+                    elif isinstance(item, Reg):
+                        item._set_context(name=item_name, module=module, sim_context=sim_context)
+                        signal_list._append_reg(item)
+            elif isinstance(signal, (Wire, Input, Output)):
                 signal._set_context(name=name, module=module, sim_context=sim_context)
                 signal_list._append_wire(signal)
             elif isinstance(signal, Reg):

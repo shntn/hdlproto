@@ -1,4 +1,5 @@
 from .signal import Wire, Reg, Input, Output
+from .signal_array import WireArray, RegArray
 from .module import always_comb, always_ff, Module, TestBench
 from .interface import Interface, Modport
 from .state import Edge
@@ -11,6 +12,8 @@ __all__ = [
     'Reg',
     'Input',
     'Output',
+    'WireArray',
+    'RegArray',
     'always_comb',
     'always_ff',
     'Module',
@@ -27,4 +30,4 @@ __all__ = [
     'VCDWriter',
 ]
 
-__version__ = '0.3.1'
+__version__ = '0.3.2'
