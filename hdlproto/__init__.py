@@ -1,5 +1,5 @@
 from .signal import Wire, Reg, InputWire, OutputWire, OutputReg
-from .signal_array import WireArray, RegArray
+from .signal_array import WireArray, RegArray, InputWireArray, OutputWireArray, OutputRegArray
 from .module import always_comb, always_ff, Module, TestBench
 from .interface import Interface, Modport
 from .state import Edge
@@ -13,6 +13,9 @@ __all__ = [
     'InputWire',
     'OutputWire',
     'OutputReg',
+    'InputWireArray',
+    'OutputWireArray',
+    'OutputRegArray',
     'WireArray',
     'RegArray',
     'always_comb',

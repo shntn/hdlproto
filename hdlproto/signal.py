@@ -457,13 +457,6 @@ class InputWire(_Port):
     target : Wire
         The Wire signal to connect to this input port.
     """
-
-    def __new__(cls, target):
-        from .signal_array import _SignalArray, _PortArray
-        if isinstance(target, _SignalArray):
-            return _PortArray(target, cls)
-        return super().__new__(cls)
-
     def __init__(self, target):
         if target._is_reg:
             raise TypeError("Input(Reg) is not allowed. Inputs must be driven by Wires.")
@@ -488,12 +481,6 @@ class OutputWire(_Port):
     target : Wire
         The Wire signal that this output port will drive.
     """
-    def __new__(cls, target):
-        from .signal_array import _SignalArray, _PortArray
-        if isinstance(target, _SignalArray):
-            return _PortArray(target, cls)
-        return super().__new__(cls)
-
     def __init__(self, target: (Wire | Reg)):
         if target._is_reg:
             raise TypeError("OutputWire cannot wrap a Reg. Use OutputReg instead.")
@@ -544,15 +531,7 @@ class OutputReg(_Port):
     target : Reg
         The Reg signal that this output port will drive.
     """
-
-    def __new__(cls, target):
-        from .signal_array import _SignalArray, _PortArray
-        if isinstance(target, _SignalArray):
-            return _PortArray(target, cls)
-        return super().__new__(cls)
-
     def __init__(self, target: Reg):
-        # 厳密な型チェック (Fail Fast)
         if not target._is_reg:
             raise TypeError("OutputReg cannot wrap a Wire. Use OutputWire instead.")
         super().__init__(target)

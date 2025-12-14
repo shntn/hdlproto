@@ -4,8 +4,7 @@ from .module import TestBench, Module, AlwaysFFWrapper
 from .simulation_context import _SimulationContext
 from .region import _SignalList, _FunctionList
 from .signal import Wire, Reg, InputWire, OutputWire, OutputReg
-from .signal_array import _SignalArray
-
+from .signal_array import _SignalArray, InputWireArray, OutputWireArray, OutputRegArray
 
 class _EnvironmentBuilder:
     """Builds the simulation environment by traversing the module hierarchy.

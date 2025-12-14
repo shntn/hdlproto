@@ -14,13 +14,13 @@ class ArrayBus(Interface):
         # Master: Outputs data
         # Note: Specifying 'OutputWire' automatically handles the WireArray
         self.master = Modport(self,
-                              data=OutputWire
+                              data=OutputWireArray
                               )
 
         # Slave: Inputs data
         # Note: Specifying 'InputWire' automatically handles the WireArray
         self.slave = Modport(self,
-                             data=InputWire
+                             data=InputWireArray
                              )
 
 

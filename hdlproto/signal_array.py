@@ -1,5 +1,5 @@
 from typing import Union, List, Tuple, Optional
-from .signal import Wire, Reg
+from .signal import Wire, Reg, InputWire, OutputWire, OutputReg
 
 
 class _SignalArray:
@@ -102,3 +102,30 @@ class _PortArray(_SignalArray):
         self._items = []
         for item in target_array:
             self._items.append(port_cls(item))
+
+
+class InputWireArray(_PortArray):
+    """Array of InputWire ports."""
+    def __init__(self, target: WireArray):
+        super().__init__(target, InputWire)
+
+    def __getitem__(self, key) -> InputWire:
+        return super().__getitem__(key)
+
+
+class OutputWireArray(_PortArray):
+    """Array of OutputWire ports."""
+    def __init__(self, target: WireArray):
+        super().__init__(target, OutputWire)
+
+    def __getitem__(self, key) -> OutputWire:
+        return super().__getitem__(key)
+
+
+class OutputRegArray(_PortArray):
+    """Array of OutputReg ports."""
+    def __init__(self, target: RegArray):
+        super().__init__(target, OutputReg)
+
+    def __getitem__(self, key) -> OutputReg:
+        return super().__getitem__(key)

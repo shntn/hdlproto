@@ -1,7 +1,8 @@
 from typing import Any, Type, Union
 
 from .module import Module
-from .signal import InputWire, OutputWire
+from .signal import InputWire, OutputWire, OutputReg
+from .signal_array import InputWireArray, OutputWireArray, OutputRegArray
 
 
 class Interface(Module):
@@ -22,7 +23,7 @@ class Modport:
 
     def __init__(self,
                  parent_interface: Interface,
-                 **port_directions: Union[Type[InputWire], Type[OutputWire]]):
+                 **port_directions: Union[Type[InputWire], Type[OutputWire], Type[OutputReg], Type[InputWireArray], Type[OutputWireArray], Type[OutputRegArray]]):
         """
         Parameters
         ----------
@@ -40,8 +41,12 @@ class Modport:
                 raise AttributeError(f"Interface '{type(parent_interface).__name__}' has no signal named '{name}'")
 
             target_signal = getattr(parent_interface, name)
+            valid_classes = (
+                InputWire, OutputWire, OutputReg,
+                InputWireArray, OutputWireArray, OutputRegArray
+            )
 
-            if direction_cls not in (InputWire, OutputWire):
+            if direction_cls not in valid_classes:
                 raise TypeError(f"Modport direction must be Input or Output, got {direction_cls}")
 
             # Dynamically create Input/Output objects here.

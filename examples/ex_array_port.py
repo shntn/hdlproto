@@ -9,10 +9,10 @@ class ParallelInverter(Module):
         self.clk = InputWire(clk)
 
         # Input(WireArray): 8-bit x 4 input bus
-        self.din = InputWire(din)
+        self.din = InputWireArray(din)
 
         # Output(RegArray): 8-bit x 4 registered output bus
-        self.dout = OutputReg(dout)
+        self.dout = OutputRegArray(dout)
 
     @always_ff((Edge.POS, "clk"))
     def logic(self):
