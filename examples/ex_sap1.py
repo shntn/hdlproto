@@ -2,11 +2,11 @@ from hdlproto import *
 
 class ProgramCounter(Module):
     def __init__(self, clk, n_clr, cp, ep, pc_out):
-        self.clk = Input(clk)
-        self.n_clr = Input(n_clr)
-        self.cp = Input(cp)
-        self.ep = Input(ep)
-        self.pc_out = Output(pc_out)
+        self.clk = InputWire(clk)
+        self.n_clr = InputWire(n_clr)
+        self.cp = InputWire(cp)
+        self.ep = InputWire(ep)
+        self.pc_out = OutputWire(pc_out)
         self.pc = Reg(init=0, width=4)
         self.pc_next = Wire(init=0, width=4)
         super().__init__()
@@ -37,10 +37,10 @@ class ProgramCounter(Module):
 
 class InputAndMemoryAddressRegister(Module):
     def __init__(self, clk, n_lm, ain, a):
-        self.clk = Input(clk)
-        self.n_lm = Input(n_lm)
-        self.ain = Input(ain)
-        self.a = Output(a)
+        self.clk = InputWire(clk)
+        self.n_lm = InputWire(n_lm)
+        self.ain = InputWire(ain)
+        self.a = OutputWire(a)
         self.a_reg = Reg(init=0, width=4)
         self.a_reg_next = Wire(init=0, width=4)
         self.select_a = Wire(init=0, width=4)
@@ -69,10 +69,10 @@ class InputAndMemoryAddressRegister(Module):
 
 class Ram(Module):
     def __init__(self, clk, a, n_ce, d):
-        self.clk = Input(clk)
-        self.a = Input(a)
-        self.n_ce = Input(n_ce)
-        self.d = Output(d)
+        self.clk = InputWire(clk)
+        self.a = InputWire(a)
+        self.n_ce = InputWire(n_ce)
+        self.d = OutputWire(d)
         self.memory = RegArray(count=16, width=8, init=[
                    # addr  inst        Acc     B-Reg   Out-Reg
             0x09,  # 0x0   LDA  0x9    0x02    0x00    0x00
@@ -102,13 +102,13 @@ class Ram(Module):
 
 class InstructionRegister(Module):
     def __init__(self, clk, clr, d, n_li, n_ei, inst, imm):
-        self.clk = Input(clk)
-        self.clr = Input(clr)
-        self.d = Input(d)
-        self.n_li = Input(n_li)
-        self.n_ei = Input(n_ei)
-        self.inst = Output(inst)
-        self.imm = Output(imm)
+        self.clk = InputWire(clk)
+        self.clr = InputWire(clr)
+        self.d = InputWire(d)
+        self.n_li = InputWire(n_li)
+        self.n_ei = InputWire(n_ei)
+        self.inst = OutputWire(inst)
+        self.imm = OutputWire(imm)
         self.inst_latch = Reg(init=0, width=4)
         self.imm_latch = Reg(init=0, width=4)
         self.data = Wire(init=0, width=8)
@@ -155,22 +155,22 @@ class InstructionRegister(Module):
 
 class ControllerSequencer(Module):
     def __init__(self, clk, n_clr, inst, cp, ep, n_lm, n_ce, n_li, n_ei, n_la, ea, su, eu, n_lb, n_lo, n_halt):
-        self.clk = Input(clk)
-        self.n_clr = Input(n_clr)
-        self.inst = Input(inst)
-        self.cp = Output(cp)
-        self.ep = Output(ep)
-        self.n_lm = Output(n_lm)
-        self.n_ce = Output(n_ce)
-        self.n_li = Output(n_li)
-        self.n_ei = Output(n_ei)
-        self.n_la = Output(n_la)
-        self.ea = Output(ea)
-        self.su = Output(su)
-        self.eu = Output(eu)
-        self.n_lb = Output(n_lb)
-        self.n_lo = Output(n_lo)
-        self.n_halt = Output(n_halt)
+        self.clk = InputWire(clk)
+        self.n_clr = InputWire(n_clr)
+        self.inst = InputWire(inst)
+        self.cp = OutputWire(cp)
+        self.ep = OutputWire(ep)
+        self.n_lm = OutputWire(n_lm)
+        self.n_ce = OutputWire(n_ce)
+        self.n_li = OutputWire(n_li)
+        self.n_ei = OutputWire(n_ei)
+        self.n_la = OutputWire(n_la)
+        self.ea = OutputWire(ea)
+        self.su = OutputWire(su)
+        self.eu = OutputWire(eu)
+        self.n_lb = OutputWire(n_lb)
+        self.n_lo = OutputWire(n_lo)
+        self.n_halt = OutputWire(n_halt)
         self.t = Reg(init=0, width=4)  # 0 = T1, ..., 5 = T6
         self.t_next = Wire(init=0, width=4)
         self.inst_lda = Wire(init=0, width=1)
@@ -236,12 +236,12 @@ class ControllerSequencer(Module):
 
 class Accumulator(Module):
     def __init__(self, clk, din, n_la, ea, dout_to_bus, dout_to_alu):
-        self.clk = Input(clk)
-        self.din = Input(din)
-        self.n_la = Input(n_la)
-        self.ea = Input(ea)
-        self.dout_to_bus = Output(dout_to_bus)
-        self.dout_to_alu = Output(dout_to_alu)
+        self.clk = InputWire(clk)
+        self.din = InputWire(din)
+        self.n_la = InputWire(n_la)
+        self.ea = InputWire(ea)
+        self.dout_to_bus = OutputWire(dout_to_bus)
+        self.dout_to_alu = OutputWire(dout_to_alu)
         self.data = Reg(init=0, width=8)
         self.data_next = Wire(init=0, width=8)
         self.data_in = Wire(init=0, width=8)
@@ -272,12 +272,12 @@ class Accumulator(Module):
 
 class AdderSubtractor(Module):
     def __init__(self, clk, din1, din2, su, eu, data_out):
-        self.clk = Input(clk)
-        self.din1 = Input(din1)
-        self.din2 = Input(din2)
-        self.su = Input(su)
-        self.eu = Input(eu)
-        self.data_out = Output(data_out)
+        self.clk = InputWire(clk)
+        self.din1 = InputWire(din1)
+        self.din2 = InputWire(din2)
+        self.su = InputWire(su)
+        self.eu = InputWire(eu)
+        self.data_out = OutputWire(data_out)
         self.op2 = Wire(init=0, width=8)
         super().__init__()
 
@@ -299,10 +299,10 @@ class AdderSubtractor(Module):
 
 class BRegister(Module):
     def __init__(self, clk, din, n_lb, dout):
-        self.clk = Input(clk)
-        self.din = Input(din)
-        self.n_lb = Input(n_lb)
-        self.dout = Output(dout)
+        self.clk = InputWire(clk)
+        self.din = InputWire(din)
+        self.n_lb = InputWire(n_lb)
+        self.dout = OutputWire(dout)
         self.data = Reg(init=0, width=8)
         self.data_next = Wire(init=0, width=8)
         self.data_in = Wire(init=0, width=8)
@@ -331,10 +331,10 @@ class BRegister(Module):
 
 class OutputRegister(Module):
     def __init__(self, clk, din, n_lo, dout):
-        self.clk = Input(clk)
-        self.din = Input(din)
-        self.n_lo = Input(n_lo)
-        self.dout = Output(dout)
+        self.clk = InputWire(clk)
+        self.din = InputWire(din)
+        self.n_lo = InputWire(n_lo)
+        self.dout = OutputWire(dout)
         self.data = Reg(init=0, width=8)
         self.data_next = Wire(init=0, width=8)
         self.data_in = Wire(init=0, width=8)
@@ -363,8 +363,8 @@ class OutputRegister(Module):
 
 class BinaryDisplay(Module):
     def __init__(self, clk, din):
-        self.clk = Input(clk)
-        self.din = Input(din)
+        self.clk = InputWire(clk)
+        self.din = InputWire(din)
         self.data = Reg(init=0, width=8)
         self.data_next = Wire(init=0, width=8)
         super().__init__()
@@ -380,8 +380,8 @@ class BinaryDisplay(Module):
 
 class Sap1(Module):
     def __init__(self, clk, clr):
-        self.clk = Input(clk)
-        self.clr = Input(clr)
+        self.clk = InputWire(clk)
+        self.clr = InputWire(clr)
 
         # 生成信号
         self.n_clr = Wire(init=1)

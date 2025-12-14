@@ -7,7 +7,7 @@ from hdlproto import *
 class ArrayTestModule(Module):
     def __init__(self, clk):
         super().__init__()
-        self.clk = Input(clk)
+        self.clk = InputWire(clk)
         self.mem = RegArray(4, width=8)
         self.bus = WireArray(2, width=4)
 

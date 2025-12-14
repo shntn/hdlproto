@@ -3,11 +3,11 @@ from hdlproto import *
 class Counter(Module):
     def __init__(self, clk, reset, enable, count_out, flag_out):
         super().__init__()
-        self.clk = Input(clk)
-        self.reset = Input(reset)
-        self.enable = Input(enable)
-        self.count_out = Output(count_out)
-        self.flag_out = Output(flag_out)
+        self.clk = InputWire(clk)
+        self.reset = InputWire(reset)
+        self.enable = InputWire(enable)
+        self.count_out = OutputWire(count_out)
+        self.flag_out = OutputWire(flag_out)
         self.count = Reg(width=4)
         self.threshold = Wire(width=4)
 

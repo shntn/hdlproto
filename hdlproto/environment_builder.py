@@ -3,7 +3,7 @@ import copy
 from .module import TestBench, Module, AlwaysFFWrapper
 from .simulation_context import _SimulationContext
 from .region import _SignalList, _FunctionList
-from .signal import Wire, Reg, Input, Output
+from .signal import Wire, Reg, InputWire, OutputWire, OutputReg
 from .signal_array import _SignalArray
 
 
@@ -107,16 +107,16 @@ class _EnvironmentBuilder:
             if isinstance(signal, _SignalArray):
                 for i, item in enumerate(signal):
                     item_name = f"{name}[{i}]"
-                    if isinstance(item, (Wire, Input, Output)):
+                    if isinstance(item, (Wire, InputWire, OutputWire)):
                         item._set_context(name=item_name, module=module, sim_context=sim_context)
                         signal_list._append_wire(item)
-                    elif isinstance(item, Reg):
+                    elif isinstance(item, (Reg, OutputReg)):
                         item._set_context(name=item_name, module=module, sim_context=sim_context)
                         signal_list._append_reg(item)
-            elif isinstance(signal, (Wire, Input, Output)):
+            elif isinstance(signal, (Wire, InputWire, OutputWire)):
                 signal._set_context(name=name, module=module, sim_context=sim_context)
                 signal_list._append_wire(signal)
-            elif isinstance(signal, Reg):
+            elif isinstance(signal, (Reg, OutputReg)):
                 signal._set_context(name=name, module=module, sim_context=sim_context)
                 signal_list._append_reg(signal)
             elif is_modport(signal):
@@ -124,11 +124,30 @@ class _EnvironmentBuilder:
                 modport_copy._ports = {}
                 for port_name, port_obj in signal._ports.items():
                     full_name = f"{name}.{port_name}"
-                    port_copy = copy.copy(port_obj)
-                    port_copy._set_context(name=full_name, module=module, sim_context=sim_context)
-                    signal_list._append_wire(port_copy)
-                    setattr(modport_copy, port_name, port_copy)
-                    modport_copy._ports[port_name] = port_copy
+                    if isinstance(port_obj, _SignalArray):
+                        # 配列コンテナのコピー
+                        array_copy = copy.copy(port_obj)
+                        new_items = []
+                        # 中身を1つずつ展開して処理
+                        for i, item in enumerate(port_obj):
+                            item_copy = copy.copy(item)
+                            item_name = f"{full_name}[{i}]"
+                            item_copy._set_context(name=item_name, module=module, sim_context=sim_context)
+                            if isinstance(item_copy, (Reg, OutputReg)):
+                                signal_list._append_reg(item_copy)
+                            else:
+                                signal_list._append_wire(item_copy)
+                            new_items.append(item_copy)
+                        array_copy._items = new_items
+                        setattr(modport_copy, port_name, array_copy)
+                        modport_copy._ports[port_name] = array_copy
+
+                    else:
+                        port_copy = copy.copy(port_obj)
+                        port_copy._set_context(name=full_name, module=module, sim_context=sim_context)
+                        signal_list._append_wire(port_copy)
+                        setattr(modport_copy, port_name, port_copy)
+                        modport_copy._ports[port_name] = port_copy
                 setattr(module, name, modport_copy)
 
     def _collect_functions(

@@ -1,6 +1,6 @@
 from enum import Enum, auto
 from typing import Callable
-from .signal import Wire, Reg, Output
+from .signal import Wire, Reg, OutputWire
 from .error import SignalInvalidAccess, SignalWriteConflict
 
 
@@ -76,7 +76,7 @@ class _SimulationContext:
         """Signal that the simulator has left the delta-cycle window."""
         self._delta_cycle = False
 
-    def _record_write(self, signal: (Wire | Reg | Output)) -> None:
+    def _record_write(self, signal: (Wire | Reg | OutputWire)) -> None:
         """Record and validate a write operation to a signal.
 
         This method is called by a signal whenever it is written to. It
@@ -85,7 +85,7 @@ class _SimulationContext:
 
         Parameters
         ----------
-        signal : Wire or Reg or Output
+        signal : Wire or Reg or OutputWire
             The signal being written to.
 
         Raises
@@ -105,9 +105,9 @@ class _SimulationContext:
             # This should be prevented by the simulator's structure
             raise RuntimeError("Signal write occurred outside of an active always block.")
 
-        if isinstance(signal, Reg) and self._current_phase == _Phase.ALWAYS_COMB:
+        if signal._is_reg and self._current_phase == _Phase.ALWAYS_COMB:
             raise SignalInvalidAccess("Cannot write to a Reg from an @always_comb block.")
-        if isinstance(signal, (Wire, Output)) and self._current_phase == _Phase.ALWAYS_FF:
+        if not signal._is_reg and self._current_phase == _Phase.ALWAYS_FF:
             raise SignalInvalidAccess("Cannot write to a Wire from an @always_ff block.")
 
         funcs = self._write_log.setdefault(signal, set())

@@ -1,28 +1,36 @@
+from typing import Any, Type, Union
+
 from .module import Module
-from .signal import Wire, Reg, Input, Output
+from .signal import InputWire, OutputWire
 
 
 class Interface(Module):
-    """SystemVerilogのinterfaceに相当する基底クラス。
-    信号の束を定義し、Modportを通じて異なる方向(Input/Output)のビューを提供します。
+    """Base class equivalent to SystemVerilog's interface.
+
+    It defines a bundle of signals and provides views with different directions
+    (Input/Output) via Modport.
     """
     pass
 
 
 class Modport:
-    """SystemVerilogのmodportに相当するクラス。
-    Interface内の信号に対して、特定の方向(Input/Output)を持つポート群を定義します。
+    """Class equivalent to SystemVerilog's modport.
+
+    It defines a group of ports with specific directions (Input/Output) for
+    signals within an Interface.
     """
 
-    def __init__(self, parent_interface: Interface, **port_directions):
+    def __init__(self,
+                 parent_interface: Interface,
+                 **port_directions: Union[Type[InputWire], Type[OutputWire]]):
         """
         Parameters
         ----------
         parent_interface : Interface
-            このModportが属するInterfaceのインスタンス
+            The Interface instance to which this Modport belongs.
         **port_directions : dict
-            信号名と方向クラス(Input/Output)のペア
-            例: clk=Input, data=Output
+            Pairs of signal names and direction classes (InputWire/OutputWire).
+            Example: clk=InputWire, data=OutputWire
         """
         self._parent = parent_interface
         self._ports = {}
@@ -33,16 +41,28 @@ class Modport:
 
             target_signal = getattr(parent_interface, name)
 
-            if direction_cls not in (Input, Output):
+            if direction_cls not in (InputWire, OutputWire):
                 raise TypeError(f"Modport direction must be Input or Output, got {direction_cls}")
 
-            # ここで動的に Input/Output オブジェクトを生成
-            # 注意: この時点では _set_context は呼ばれません。
-            # EnvironmentBuilder がモジュールに取り込まれた時点でコンテキストが設定されます。
+            # Dynamically create Input/Output objects here.
+            # Note: _set_context is not called at this point.
+            # The context is set when the EnvironmentBuilder processes the module.
             port_instance = direction_cls(target_signal)
 
-            # self.clk, self.data などでアクセスできるように属性セット
+            # Set attributes to allow access via self.clk, self.data, etc.
             setattr(self, name, port_instance)
 
-            # 管理用に保持
+            # Keep for management purposes
             self._ports[name] = port_instance
+
+    def __getattr__(self, name: str) -> Any:
+        # Magic method to suppress warnings from static analysis tools (IDEs).
+        #
+        # Attributes set via setattr in __init__ are accessible normally,
+        # so execution does not reach here for them.
+        # Execution reaches here only when accessing 'non-existent attributes'.
+        #
+        # While it raises AttributeError as usual at runtime, the existence of
+        # this method makes IDEs recognize the class has dynamic attributes,
+        # suppressing unresolved attribute warnings (treated as Any type).
+        raise AttributeError(f"'Modport' object has no attribute '{name}'")

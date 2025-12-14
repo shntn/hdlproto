@@ -143,7 +143,7 @@ class BoundAlwaysFF:
 # ============================================================
 # always_ff decorator（class-level wrapper を返す）
 # ============================================================
-def always_ff(*trigger_specs):
+def always_ff(*trigger_specs: tuple[Edge, str]):
     """Decorate a method as a sequential process sensitive to signal edges.
 
     This decorator marks a method within a `Module` as being an `always_ff`

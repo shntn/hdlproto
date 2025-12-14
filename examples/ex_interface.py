@@ -1,36 +1,58 @@
 from hdlproto import *
 
 
-# --- 1. Interface定義 ---
+# --- 1. Interface definition ---
+# The Interface collects related signals (Wire objects) into a single
+# reusable bundle. Use an Interface when multiple modules need to share
+# a group of signals with well-defined directions.
+#
+# Steps to define an Interface:
+#  1) Create Wire fields (signals) as attributes on the Interface class.
+#  2) Call `super().__init__()` to let the framework register the signals.
+#  3) Define one or more Modport views that map each signal name to a
+#     directional Wire type (InputWire/OutputWire). A Modport is a
+#     lightweight "view" of the interface used by a module.
+#
+# Why Modports:
+#  - A Modport specifies which side drives a signal and which side reads it.
+#  - Pass a Modport instance (not the raw Interface) to modules so the
+#    module's code is checked and intentions are clear.
+#  - Example: `self.master = Modport(self, valid=OutputWire, ready=InputWire)`
+#    means the master will drive `valid` and observe `ready`.
 class HandshakeBus(Interface):
     def __init__(self):
-        self.clk = Wire()
         self.valid = Wire()
         self.ready = Wire()
         self.data = Wire(width=8)
         super().__init__()
 
-        # Master側: valid/dataを出力, readyを入力
+        # Master side: outputs valid/data, inputs ready
+        # The Modport maps names to directional Wire classes. Modules that
+        # receive `self.master` should write to `bus.valid.w` / `bus.data.w`
+        # and read `bus.ready.w`.
         self.master = Modport(self,
-                              clk=Input, valid=Output, data=Output, ready=Input
+                              valid=OutputWire, data=OutputWire, ready=InputWire
                               )
 
-        # Slave側: valid/dataを入力, readyを出力
+        # Slave side: inputs valid/data, outputs ready
+        # The slave receives `self.slave` and will read `valid`/`data` and
+        # drive `ready`.
         self.slave = Modport(self,
-                             clk=Input, valid=Input, data=Input, ready=Output
+                             valid=InputWire, data=InputWire, ready=OutputWire
                              )
 
 
-# --- 2. Masterモジュール ---
+# --- 2. Master module ---
 class Master(Module):
-    def __init__(self, bus: Modport):
+    def __init__(self, clk, bus: Modport):
         super().__init__()
-        self.bus = bus  # Modportを受け取る
+        self.clk = InputWire(clk)
+        self.bus = bus  # Accept a Modport
         self.counter = Reg(width=8)
 
-    @always_ff((Edge.POS, 'bus.clk'))  # bus.clk という名前でアクセス可能
+    @always_ff((Edge.POS, 'clk'))
     def logic(self):
-        # 単純なロジック: Readyならカウントアップして送信
+        # Simple logic: increment counter and send when ready
         if self.bus.ready.w:
             self.counter.r = self.counter.r + 1
 
@@ -40,23 +62,24 @@ class Master(Module):
         self.bus.data.w = self.counter.r
 
 
-# --- 3. Slaveモジュール ---
+# --- 3. Slave module ---
 class Slave(Module):
-    def __init__(self, bus: Modport):
+    def __init__(self, clk, bus: Modport):
         super().__init__()
+        self.clk = InputWire(clk)
         self.bus = bus
-        # 内部状態を持たせて、定期的に Ready をトグルさせる
+        # Keep internal state to periodically toggle Ready
         self.toggle_reg = Reg(width=1)
 
-    @always_ff((Edge.POS, 'bus.clk'))
+    @always_ff((Edge.POS, 'clk'))
     def state_update(self):
-        # サイクルごとに 0 -> 1 -> 0 -> ... と変化
+        # Toggle 0 -> 1 -> 0 -> ... each cycle
         self.toggle_reg.r = ~self.toggle_reg.r
 
     @always_comb
     def logic(self):
-        # 内部状態に応じて Ready を出す
-        # これにより「待って(Ready=0)」と「いいよ(Ready=1)」を繰り返す
+        # Drive Ready according to internal state
+        # This alternates between wait (Ready=0) and go (Ready=1)
         self.bus.ready.w = self.toggle_reg.r
 
 
@@ -64,27 +87,27 @@ class Slave(Module):
 class TbInterface(TestBench):
     def __init__(self):
         super().__init__()
-        # Interface実体化
+        self.clk = Wire()
+        # Instantiate the interface
         self.bus = HandshakeBus()
 
-        # 接続 (Modportを渡すだけ！)
-        self.m = Master(self.bus.master)
-        self.s = Slave(self.bus.slave)
+        # Connections (just pass Modport!)
+        # Important: pass the Modport view (`self.bus.master` / `self.bus.slave`)
+        # to modules rather than the raw Interface object. The Modport enforces
+        # directionality and documents what each module may drive or observe.
+        self.m = Master(self.clk, self.bus.master)
+        self.s = Slave(self.clk, self.bus.slave)
 
-    def run(self, sim):
-        # クロック駆動はInterface内のWireを直接指定
-        sim.clock_wire = self.bus.clk
-
+    def run(self, simulator):
         for _ in range(10):
-            sim.clock()
+            simulator.clock()
             print(f"Time={_} Valid={self.bus.valid.w} Data={self.bus.data.w} Ready={self.bus.ready.w}")
 
 
 if __name__ == "__main__":
     tb = TbInterface()
     vcd = VCDWriter()
-    # シミュレータには Interface内の生Wire (tb.bus.clk) を渡す
-    sim = Simulator(testbench=tb, clock=tb.bus.clk, vcd=vcd)
+    sim = Simulator(testbench=tb, clock=tb.clk, vcd=vcd)
 
     vcd.open("interface.vcd")
     tb.run(sim)

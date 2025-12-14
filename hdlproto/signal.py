@@ -50,6 +50,11 @@ class _Signal:
         self._name = None
         self._module = None
 
+    @property
+    def _is_reg(self) -> bool:
+        """Return True if this signal behaves as a register (holds state)."""
+        return False
+
     def _set_context(self, name: str, module, sim_context) -> None:
         """Attach metadata so the signal can resolve scope, module, and simulator.
 
@@ -306,6 +311,10 @@ class Reg(_Signal):
     """
 
     @property
+    def _is_reg(self) -> bool:
+        return True
+
+    @property
     def r(self) -> int:
         """Return the current committed register value.
 
@@ -386,6 +395,15 @@ class _Port(_Signal):
         super().__init__()
         self._target = target._get_signal()
         self._name = None
+        self._width = target._get_width()
+
+    def __getnewargs__(self):
+        return (self._target,)
+
+    @property
+    def _is_reg(self) -> bool:
+        # Proxy the is_reg property from the target signal
+        return self._target._is_reg
 
     @property
     def w(self) -> int:
@@ -396,6 +414,11 @@ class _Port(_Signal):
         return self._target._read_bits(key)
 
     def _commit(self) -> None:
+        # 【重要】ターゲットが Reg の場合、Port側で _commit() を呼んではいけません。
+        # Regはシミュレータによって別途管理され、NBA領域でコミットされるためです。
+        # ここで呼んでしまうと、Active領域で値が確定してしまい、レースコンディションになります。
+        if isinstance(self._target, Reg):
+            return
         self._target._commit()
 
     def _snapshot_delta(self) -> None:
@@ -423,7 +446,7 @@ class _Port(_Signal):
         return f"{self._name}({self._target._get_name()})"
 
 
-class Input(_Port):
+class InputWire(_Port):
     """Passive port alias that mirrors a Wire value from a parent module.
 
     An Input port provides read-only access to a Wire in a parent or
@@ -434,10 +457,27 @@ class Input(_Port):
     target : Wire
         The Wire signal to connect to this input port.
     """
-    pass
+
+    def __new__(cls, target):
+        from .signal_array import _SignalArray, _PortArray
+        if isinstance(target, _SignalArray):
+            return _PortArray(target, cls)
+        return super().__new__(cls)
+
+    def __init__(self, target):
+        if target._is_reg:
+            raise TypeError("Input(Reg) is not allowed. Inputs must be driven by Wires.")
+        super().__init__(target)
+
+    @property
+    def w(self) -> int:
+        return self._target._get_value()
+
+    def __getitem__(self, key):
+        return self._target._read_bits(key)
 
 
-class Output(_Port):
+class OutputWire(_Port):
     """Active port alias that can drive its target wire from child modules.
 
     An Output port provides write access to a Wire in a parent or
@@ -448,8 +488,23 @@ class Output(_Port):
     target : Wire
         The Wire signal that this output port will drive.
     """
+    def __new__(cls, target):
+        from .signal_array import _SignalArray, _PortArray
+        if isinstance(target, _SignalArray):
+            return _PortArray(target, cls)
+        return super().__new__(cls)
 
-    @_Port.w.setter
+    def __init__(self, target: (Wire | Reg)):
+        if target._is_reg:
+            raise TypeError("OutputWire cannot wrap a Reg. Use OutputReg instead.")
+        super().__init__(target)
+
+    @property
+    def w(self) -> int:
+        """Return the current value."""
+        return self._target._get_value()
+
+    @w.setter
     def w(self, value: int) -> None:
         """Drive the target wire with a new value.
 
@@ -461,8 +516,61 @@ class Output(_Port):
         self._sim_context._record_write(self)
         self._target._write(value)
 
+    def __getitem__(self, key):
+        return self._target._read_bits(key)
+
     def __setitem__(self, key: (int | slice), value: int) -> None:
         """Drive a slice of the target wire with a new value.
+
+        Parameters
+        ----------
+        key : int or slice
+            The index or slice ([msb:lsb]) of the target to drive.
+        value : int
+            The value to drive into the selected bit(s).
+        """
+        self._sim_context._record_write(self)
+        self._target._write_bits(key, value)
+
+
+class OutputReg(_Port):
+    """Active port alias that can drive its target reg from child modules.
+
+    An Output port provides write access to a Reg in a parent or
+    enclosing module. It is used to drive signals up the module hierarchy.
+
+    Parameters
+    ----------
+    target : Reg
+        The Reg signal that this output port will drive.
+    """
+
+    def __new__(cls, target):
+        from .signal_array import _SignalArray, _PortArray
+        if isinstance(target, _SignalArray):
+            return _PortArray(target, cls)
+        return super().__new__(cls)
+
+    def __init__(self, target: Reg):
+        # 厳密な型チェック (Fail Fast)
+        if not target._is_reg:
+            raise TypeError("OutputReg cannot wrap a Wire. Use OutputWire instead.")
+        super().__init__(target)
+
+    @property
+    def r(self) -> int:
+        return self._target._get_value()
+
+    @r.setter
+    def r(self, value: int) -> None:
+        self._sim_context._record_write(self)
+        self._target._write(value)
+
+    def __getitem__(self, key):
+        return self._target._read_bits(key)
+
+    def __setitem__(self, key, value):
+        """Drive a slice of the target reg with a new value.
 
         Parameters
         ----------

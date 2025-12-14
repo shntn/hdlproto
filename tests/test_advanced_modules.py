@@ -6,9 +6,9 @@ class ShiftRegister(Module):
     """3-stage shift register"""
     def __init__(self, clk, din, dout):
         super().__init__()
-        self.clk = Input(clk)
-        self.din = Input(din)
-        self.dout = Output(dout)
+        self.clk = InputWire(clk)
+        self.din = InputWire(din)
+        self.dout = OutputWire(dout)
         self.stage0 = Reg()
         self.stage1 = Reg()
         self.stage2 = Reg()
@@ -70,10 +70,10 @@ class Mux2to1(Module):
     """2-to-1 multiplexer"""
     def __init__(self, a, b, sel, out):
         super().__init__()
-        self.a = Input(a)
-        self.b = Input(b)
-        self.sel = Input(sel)
-        self.out = Output(out)
+        self.a = InputWire(a)
+        self.b = InputWire(b)
+        self.sel = InputWire(sel)
+        self.out = OutputWire(out)
 
     @always_comb
     def mux_logic(self):
@@ -128,10 +128,10 @@ class RegisteredAdder(Module):
     """Adder with registered output"""
     def __init__(self, clk, a, b, sum_out):
         super().__init__()
-        self.clk = Input(clk)
-        self.a = Input(a)
-        self.b = Input(b)
-        self.sum_out = Output(sum_out)
+        self.clk = InputWire(clk)
+        self.a = InputWire(a)
+        self.b = InputWire(b)
+        self.sum_out = OutputWire(sum_out)
         self.sum_reg = Reg(width=5)
 
     @always_ff((Edge.POS, 'clk'))
@@ -182,8 +182,8 @@ class Inverter(Module):
     """Simple inverter"""
     def __init__(self, inp, out):
         super().__init__()
-        self.inp = Input(inp)
-        self.out = Output(out)
+        self.inp = InputWire(inp)
+        self.out = OutputWire(out)
 
     @always_comb
     def invert_logic(self):
@@ -194,8 +194,8 @@ class DoubleInverter(Module):
     """Two inverters in series (submodule test)"""
     def __init__(self, inp, out):
         super().__init__()
-        self.inp = Input(inp)
-        self.out = Output(out)
+        self.inp = InputWire(inp)
+        self.out = OutputWire(out)
         self.temp = Wire()
         # サブモジュールには実際のWireを渡す（Input/Outputのターゲット）
         self.inv1 = Inverter(inp, self.temp)

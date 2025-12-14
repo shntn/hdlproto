@@ -58,6 +58,7 @@ class _SignalArray:
     def __len__(self):
         return len(self._items)
 
+
 class WireArray(_SignalArray):
     """Array of Wire signals."""
 
@@ -78,3 +79,26 @@ class RegArray(_SignalArray):
                  init: Optional[Union[int, List[int], Tuple[int, ...]]] = None,
                  **kwargs):
         super().__init__(count, Reg, width=width, init=init, **kwargs)
+
+
+class _PortArray(_SignalArray):
+    """Input/Output でラップされた信号の配列。
+
+    Input(WireArray(...)) や Output(RegArray(...)) をしたときに生成されます。
+    """
+
+    def __init__(self, target_array: _SignalArray, port_cls: type):
+        """
+        Parameters
+        ----------
+        target_array : _SignalArray
+            ラップ対象の WireArray または RegArray
+        port_cls : type
+            Input または Output クラス
+        """
+        width = target_array._items[0]._get_width() if target_array._items else 1
+        super().__init__(count=0, signal_type=port_cls, width=width)
+
+        self._items = []
+        for item in target_array:
+            self._items.append(port_cls(item))

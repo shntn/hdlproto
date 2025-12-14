@@ -6,9 +6,9 @@ class DFF(Module):
     """Simple D Flip-Flop"""
     def __init__(self, clk, d, q):
         super().__init__()
-        self.clk = Input(clk)
-        self.d = Input(d)
-        self.q = Output(q)
+        self.clk = InputWire(clk)
+        self.d = InputWire(d)
+        self.q = OutputWire(q)
         self.q_reg = Reg()
 
     @always_ff((Edge.POS, 'clk'))
@@ -53,9 +53,9 @@ class SimpleCounter(Module):
     """Simple 4-bit counter with reset"""
     def __init__(self, clk, reset, count):
         super().__init__()
-        self.clk = Input(clk)
-        self.reset = Input(reset)
-        self.count = Output(count)
+        self.clk = InputWire(clk)
+        self.reset = InputWire(reset)
+        self.count = OutputWire(count)
         self.cnt_reg = Reg(width=4)
 
     @always_ff((Edge.POS, 'clk'), (Edge.POS, 'reset'))
@@ -104,9 +104,9 @@ class Adder(Module):
     """Combinational adder"""
     def __init__(self, a, b, sum_out):
         super().__init__()
-        self.a = Input(a)
-        self.b = Input(b)
-        self.sum_out = Output(sum_out)
+        self.a = InputWire(a)
+        self.b = InputWire(b)
+        self.sum_out = OutputWire(sum_out)
 
     @always_comb
     def add_logic(self):

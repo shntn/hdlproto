@@ -28,7 +28,10 @@ class VCDSignalAdapter(_IVCDSignal):
     @property
     def name(self) -> str:
         """str: The name of the adapted signal."""
-        return self._sig._name
+        str = self._sig._name
+        if '['  in str:
+            str = '\\' + str
+        return str
 
     @property
     def width(self) -> int:
@@ -38,7 +41,7 @@ class VCDSignalAdapter(_IVCDSignal):
     @property
     def is_reg(self) -> bool:
         """bool: Whether the adapted signal is a register."""
-        return isinstance(self._sig, Reg)
+        return self._sig._is_reg
 
     @property
     def value(self) -> int:
