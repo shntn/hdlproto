@@ -82,8 +82,8 @@ PYTHONPATH=. python3 example/ex_sap1.py
 ## Design Rules (Important)
 
 - `@always_ff((Edge.POS, 'clk'), ...)`: Only non-blocking assignments to `Reg` (writes via `.r`) are valid. Describes sequential logic sensitive to specified signal edges.
-- `@always_comb`: Only writes to `Wire`/`Output` (via `.w`) are valid. Writing to `Reg` will raise an exception.
-- `Simulator.clock()` drives the clock signal specified in `SimConfig`. The clock signal must be received as an `Input` in the top module and defined as a `Wire` in the `TestBench`.
+- `@always_comb`: Only writes to `Wire`/`OutputWire` (via `.w`) are valid. Writing to `Reg`/`OutputReg` will raise an exception.
+- `Simulator.clock()` drives the clock signal specified in `SimConfig`. The clock signal must be received as an `InputWire` in the top module and defined as a `Wire` in the `TestBench`.
 - Reset is treated as an input signal. Asynchronous reset is implemented by adding the reset signal to the `@always_ff` trigger list (e.g., `@always_ff((Edge.POS, 'clk'), (Edge.POS, 'reset'))`). Synchronous reset is described by writing the reset condition inside an `always_ff` block that only triggers on the clock edge.
 - Convergence loop: `@always_comb` is re-evaluated until signals stabilize. Non-convergence raises an exception.
 
