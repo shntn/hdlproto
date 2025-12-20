@@ -289,12 +289,12 @@ class Reg:
 
 
 class InputWire:
-    def __init__(self, target):
+    def __init__(self, target: Wire):
         if target._is_reg:
             raise TypeError("Input(Reg) is not allowed. Inputs must be driven by Wires.")
         self._sim_context = None
         self._module = None
-        self._target = target._get_signal()
+        self._target = target
         self._name = None
         self._width = target._get_width()
 
@@ -313,8 +313,6 @@ class InputWire:
         return self._target._is_reg
 
     def _commit(self) -> None:
-        if isinstance(self._target, Reg):
-            return
         self._target._commit()
 
     def _get_signal(self):
@@ -325,6 +323,9 @@ class InputWire:
 
     def _get_value(self):
         return self._target._get_value()
+
+    def _read_bits(self, key: (slice | int)) -> int:
+        return self._target._read_bits(key)
 
     def _get_name(self) -> str:
         return f"{self._name}({self._target._get_name()})"
@@ -357,14 +358,14 @@ class InputWire:
 
 
 class OutputWire:
-    def __init__(self, target: (Wire | Reg)):
+    def __init__(self, target):
         if target._is_reg:
             raise TypeError("OutputWire cannot wrap a Reg. Use OutputReg instead.")
         self._sim_context = None
-        self._name = None
         self._module = None
-        self._target = target._get_signal()
+        self._target = target
         self._name = None
+        self._width = target._get_width()
 
     @property
     def w(self) -> int:
@@ -390,8 +391,6 @@ class OutputWire:
         return self._target._is_reg
 
     def _commit(self) -> None:
-        if isinstance(self._target, Reg):
-            return
         self._target._commit()
 
     def _get_signal(self):
@@ -402,6 +401,15 @@ class OutputWire:
 
     def _get_value(self):
         return self._target._get_value()
+
+    def _write(self, value: int) -> None:
+        self._target._write(value)
+
+    def _write_bits(self, key: (slice | int), value: int) -> None:
+        return self._target._write_bits(key, value)
+
+    def _read_bits(self, key: (slice | int)) -> int:
+        return self._target._read_bits(key)
 
     def _get_name(self) -> str:
         return f"{self._name}({self._target._get_name()})"
@@ -439,7 +447,7 @@ class OutputReg:
             raise TypeError("OutputReg cannot wrap a Wire. Use OutputWire instead.")
         self._sim_context = None
         self._module = None
-        self._target = target._get_signal()
+        self._target = target
         self._name = None
         self._width = target._get_width()
 
@@ -467,8 +475,6 @@ class OutputReg:
         return self._target._is_reg
 
     def _commit(self) -> None:
-        if isinstance(self._target, Reg):
-            return
         self._target._commit()
 
     def _get_signal(self):
@@ -480,6 +486,15 @@ class OutputReg:
     def _get_value(self):
         return self._target._get_value()
 
+    def _write(self, value: int) -> None:
+        self._target._write(value)
+
+    def _write_bits(self, key: (slice | int), value: int) -> None:
+        return self._target._write_bits(key, value)
+
+    def _read_bits(self, key: (slice | int)) -> int:
+        return self._target._read_bits(key)
+
     def _get_name(self) -> str:
         return f"{self._name}({self._target._get_name()})"
 
@@ -487,15 +502,6 @@ class OutputReg:
         self._name = name
         self._module = module
         self._sim_context = sim_context
-
-    def _write(self, value: int) -> None:
-        self._target._write(value)
-
-    def _read_bits(self, key: (slice | int)) -> int:
-        return self._target._read_bits(key)
-
-    def _write_bits(self, key: (slice | int), value: int) -> None:
-        self._target._write_bits(key, value)
 
     def _snapshot_delta(self) -> None:
         self._target._snapshot_delta()
