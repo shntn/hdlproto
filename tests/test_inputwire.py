@@ -64,7 +64,7 @@ def test_input_wire_pass_through(ctx):
 
     # 2. ターゲットの値を変更
     target.w = 0xFF
-    target._commit()
+    inp._commit()
 
     # 3. InputWire経由で確認
     assert inp.w == 0xFF, "Should reflect updated target value"
