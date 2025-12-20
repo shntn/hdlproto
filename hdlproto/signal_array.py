@@ -84,7 +84,7 @@ class RegArray:
 
 
 class InputWireArray:
-    def __init__(self, target_array: WireArray):
+    def __init__(self, target_array: "WireArray | InputWireArray | OutputWireArray"):
         input_array = _make_inout_array(InputWire, target_array)
         self._base = _SignalArray(input_array)
 
@@ -102,7 +102,7 @@ class InputWireArray:
 
 
 class OutputWireArray:
-    def __init__(self, target_array: WireArray):
+    def __init__(self, target_array: "WireArray | OutputWireArray"):
         output_array = _make_inout_array(OutputWire, target_array)
         self._base = _SignalArray(output_array)
 
@@ -117,6 +117,14 @@ class OutputWireArray:
 
     def __getitem__(self, key) -> OutputWire:
         return self._base[key]
+
+    def __setitem__(self, key, value):
+        # array[0] = 5 のような、要素そのものの置換は禁止
+        # (書き込みは array[0].w = 5 と書くべき)
+        if not isinstance(key, tuple):
+            raise TypeError("OutputWireArray only supports tuple assignment (e.g. arr[i, 7:0] = val)")
+        index, bit_slice = key
+        self._base[index][bit_slice] = value
 
 
 class OutputRegArray:
@@ -135,3 +143,12 @@ class OutputRegArray:
 
     def __getitem__(self, key) -> OutputReg:
         return self._base[key]
+
+    def __setitem__(self, key, value):
+        # array[0] = 5 のような、要素そのものの置換は禁止
+        # (書き込みは array[0].r = 5 と書くべき)
+        if not isinstance(key, tuple):
+            raise TypeError("OutputRegArray only supports tuple assignment (e.g. arr[i, 7:0] = val)")
+        index, bit_slice = key
+        self._base[index][bit_slice] = value
+
