@@ -119,8 +119,8 @@ class OutputWireArray:
         return self._base[key]
 
     def __setitem__(self, key, value):
-        # array[0] = 5 のような、要素そのものの置換は禁止
-        # (書き込みは array[0].w = 5 と書くべき)
+        # Replacement of the element itself like array[0] = 5 is prohibited
+        # (Write should be written as array[0].w = 5)
         if not isinstance(key, tuple):
             raise TypeError("OutputWireArray only supports tuple assignment (e.g. arr[i, 7:0] = val)")
         index, bit_slice = key
@@ -145,8 +145,8 @@ class OutputRegArray:
         return self._base[key]
 
     def __setitem__(self, key, value):
-        # array[0] = 5 のような、要素そのものの置換は禁止
-        # (書き込みは array[0].r = 5 と書くべき)
+        # Replacement of the element itself like array[0] = 5 is prohibited
+        # (Write should be written as array[0].r = 5)
         if not isinstance(key, tuple):
             raise TypeError("OutputRegArray only supports tuple assignment (e.g. arr[i, 7:0] = val)")
         index, bit_slice = key
