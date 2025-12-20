@@ -2,46 +2,35 @@ from typing import Union, List, Tuple, Optional
 from .signal import Wire, Reg, InputWire, OutputWire, OutputReg
 
 
+def _make_initialized_data(count: int,
+                           init: Union[int, List[int], Tuple[int, ...]] = 0) -> List[int]:
+    if isinstance(init, (list, tuple)):
+        return [init[i] if i < len(init) else 0 for i in range(count)]
+    return [init] * count
+
+
+def _make_signal_array(signal_type: type,
+                       init_array: list,
+                       width: int) -> list:
+    items = [signal_type(init=init_data, width=width) for init_data in init_array]
+    return items
+
+
+def _make_inout_array(signal_type: type,
+                      target_array) -> list:
+    items = [signal_type(target) for target in target_array]
+    return items
+
+
 class _SignalArray:
-    """A container for managing an array of signals (Wire, Reg, or Port).
+    def __init__(self, items: list):
+        self._items = items
 
-    This class allows creating and accessing signals as a list, while enabling
-    the EnvironmentBuilder to register them individually with indexed names
-    (e.g., 'mem[0]', 'mem[1]').
-    """
+    def __len__(self):
+        return len(self._items)
 
-    def __init__(self,
-                 count: int,
-                 signal_type: type,
-                 width: Optional[int] = 1,
-                 init: Optional[Union[int, List[int], Tuple[int, ...]]] = None,
-                 **kwargs):
-        """
-        Parameters
-        ----------
-        count : int
-            Number of elements in the array.
-        signal_type : type
-            The class to instantiate (Wire, Reg, Input, Output).
-        init : int or list or tuple, optional
-            Initial value(s). Can be a single integer (applied to all)
-            or a list/tuple of integers (applied per index).
-        **kwargs : dict
-            Arguments to pass to the signal constructor (e.g., width=8).
-
-        Examples
-        --------
-        >>> self.mem = _SignalArray(16, Reg, width=8)
-        >>> self.mem[0].r = 10
-        """
-        init_data = init if init is not None else 0
-        self._items = []
-        for i in range(count):
-            if isinstance(init_data, (list, tuple)):
-                val = init_data[i] if i < len(init_data) else 0
-            else:
-                val = init_data
-            self._items.append(signal_type(init=val, width=width, **kwargs))
+    def __iter__(self):
+        return iter(self._items)
 
     def __getitem__(self, key):
         if isinstance(key, tuple):
@@ -49,83 +38,100 @@ class _SignalArray:
             return self._items[index][bit_slice]
         return self._items[key]
 
-    def __setitem__(self, key, value):
-        self._items[key] = value
 
-    def __iter__(self):
-        return iter(self._items)
+class WireArray:
+    def __init__(self,
+                 count: int,
+                 width: Optional[int] = 1,
+                 init: Optional[Union[int, List[int], Tuple[int, ...]]] = 0):
+        init_array = _make_initialized_data(count, init)
+        signal_array = _make_signal_array(Wire, init_array, width)
+        self._base = _SignalArray(signal_array)
+
+    def _set_array(self, array: list):
+        self._base = _SignalArray(array)
 
     def __len__(self):
-        return len(self._items)
+        return len(self._base)
+
+    def __iter__(self):
+        return iter(self._base)
+
+    def __getitem__(self, key):
+        return self._base[key]
 
 
-class WireArray(_SignalArray):
-    """Array of Wire signals."""
-
+class RegArray:
     def __init__(self,
                  count: int,
                  width: Optional[int] = 1,
-                 init: Optional[Union[int, List[int], Tuple[int, ...]]] = None,
-                 **kwargs):
-        super().__init__(count, Wire, width=width, init=init, **kwargs)
+                 init: Optional[Union[int, List[int], Tuple[int, ...]]] = 0):
+        init_array = _make_initialized_data(count, init)
+        signal_array = _make_signal_array(Reg, init_array, width)
+        self._base = _SignalArray(signal_array)
+
+    def _set_array(self, array: list):
+        self._base = _SignalArray(array)
+
+    def __len__(self):
+        return len(self._base)
+
+    def __iter__(self):
+        return iter(self._base)
+
+    def __getitem__(self, key):
+        return self._base[key]
 
 
-class RegArray(_SignalArray):
-    """Array of Reg signals."""
+class InputWireArray:
+    def __init__(self, target_array: WireArray):
+        input_array = _make_inout_array(InputWire, target_array)
+        self._base = _SignalArray(input_array)
 
-    def __init__(self,
-                 count: int,
-                 width: Optional[int] = 1,
-                 init: Optional[Union[int, List[int], Tuple[int, ...]]] = None,
-                 **kwargs):
-        super().__init__(count, Reg, width=width, init=init, **kwargs)
+    def _set_array(self, array: list):
+        self._base = _SignalArray(array)
 
+    def __iter__(self):
+        return iter(self._base)
 
-class _PortArray(_SignalArray):
-    """Input/Output でラップされた信号の配列。
-
-    Input(WireArray(...)) や Output(RegArray(...)) をしたときに生成されます。
-    """
-
-    def __init__(self, target_array: _SignalArray, port_cls: type):
-        """
-        Parameters
-        ----------
-        target_array : _SignalArray
-            ラップ対象の WireArray または RegArray
-        port_cls : type
-            Input または Output クラス
-        """
-        width = target_array._items[0]._get_width() if target_array._items else 1
-        super().__init__(count=0, signal_type=port_cls, width=width)
-
-        self._items = []
-        for item in target_array:
-            self._items.append(port_cls(item))
-
-
-class InputWireArray(_PortArray):
-    """Array of InputWire ports."""
-    def __init__(self, target: WireArray):
-        super().__init__(target, InputWire)
+    def __len__(self):
+        return len(self._base)
 
     def __getitem__(self, key) -> InputWire:
-        return super().__getitem__(key)
+        return self._base[key]
 
 
-class OutputWireArray(_PortArray):
-    """Array of OutputWire ports."""
-    def __init__(self, target: WireArray):
-        super().__init__(target, OutputWire)
+class OutputWireArray:
+    def __init__(self, target_array: WireArray):
+        output_array = _make_inout_array(OutputWire, target_array)
+        self._base = _SignalArray(output_array)
+
+    def _set_array(self, array: list):
+        self._base = _SignalArray(array)
+
+    def __iter__(self):
+        return iter(self._base)
+
+    def __len__(self):
+        return len(self._base)
 
     def __getitem__(self, key) -> OutputWire:
-        return super().__getitem__(key)
+        return self._base[key]
 
 
-class OutputRegArray(_PortArray):
-    """Array of OutputReg ports."""
-    def __init__(self, target: RegArray):
-        super().__init__(target, OutputReg)
+class OutputRegArray:
+    def __init__(self, target_array: RegArray):
+        output_array = _make_inout_array(OutputReg, target_array)
+        self._base = _SignalArray(output_array)
+
+    def _set_array(self, array: list):
+        self._base = _SignalArray(array)
+
+    def __iter__(self):
+        return iter(self._base)
+
+    def __len__(self):
+        return len(self._base)
 
     def __getitem__(self, key) -> OutputReg:
-        return super().__getitem__(key)
+        return self._base[key]

@@ -4,7 +4,7 @@ from .module import TestBench, Module, AlwaysFFWrapper
 from .simulation_context import _SimulationContext
 from .region import _SignalList, _FunctionList
 from .signal import Wire, Reg, InputWire, OutputWire, OutputReg
-from .signal_array import _SignalArray, InputWireArray, OutputWireArray, OutputRegArray
+from .signal_array import WireArray, RegArray, InputWireArray, OutputWireArray, OutputRegArray
 
 class _EnvironmentBuilder:
     """Builds the simulation environment by traversing the module hierarchy.
@@ -103,7 +103,7 @@ class _EnvironmentBuilder:
 
         # 辞書のサイズが変わるのを避けるため、list化してからループする
         for name, signal in list(module.__dict__.items()):
-            if isinstance(signal, _SignalArray):
+            if isinstance(signal, (WireArray, RegArray, InputWireArray, OutputWireArray, OutputRegArray)):
                 for i, item in enumerate(signal):
                     item_name = f"{name}[{i}]"
                     if isinstance(item, (Wire, InputWire, OutputWire)):
@@ -123,7 +123,7 @@ class _EnvironmentBuilder:
                 modport_copy._ports = {}
                 for port_name, port_obj in signal._ports.items():
                     full_name = f"{name}.{port_name}"
-                    if isinstance(port_obj, _SignalArray):
+                    if isinstance(port_obj, (WireArray, RegArray, InputWireArray, OutputWireArray, OutputRegArray)):
                         # 配列コンテナのコピー
                         array_copy = copy.copy(port_obj)
                         new_items = []
@@ -137,7 +137,7 @@ class _EnvironmentBuilder:
                             else:
                                 signal_list._append_wire(item_copy)
                             new_items.append(item_copy)
-                        array_copy._items = new_items
+                        array_copy._set_array(new_items)
                         setattr(modport_copy, port_name, array_copy)
                         modport_copy._ports[port_name] = array_copy
 
